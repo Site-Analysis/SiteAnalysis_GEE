@@ -1,0 +1,25 @@
+1.https://developers.google.com/earth-engine/datasets/catalog/WM_geoLab_geoBoundaries_600_ADM1#description
+ -This dataset only has state level boundary data for india
+
+ 2.https://developers.google.com/earth-engine/datasets/catalog/FAO_GAUL_SIMPLIFIED_500m_2015_level2#description
+    -This dataset has data uptil district level  http://127.0.0.1:8001/docs
+    -sample json output-{  
+        "success": true,
+        "admin_level": "ADM2",
+        "country": "India",
+        "state_filter": "Karnataka",
+        "total_available": 27,
+        "showing": 27,
+        "boundaries": [
+            {
+            "country": "India",
+            "country_code": 115,
+            "state": "Karnataka",
+            "state_code": 1494,
+            "district": "Bagalkot",
+            "district_code": 70157,
+            "status": "Member State",
+            "creation_year": 1997,
+            "expiry_year": 3000,
+            "name": "Bagalkot"
+            },
