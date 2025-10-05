@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEE Geospatial Analysis Platform</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            z-index: 1000;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .header p {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+            margin-top: 100px;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 400px;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            overflow-y: auto;
+            margin-top: 100px;
+            box-shadow: -4px 0 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-content {
+            padding: 1.5rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        input, select {
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        /* Loading State */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Results Container */
+        .results {
+            display: none;
+        }
+
+        /* Statistics Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-bottom: 1.5rem;
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Land Cover Legend */
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        /* Visualization Gallery */
+        .visual-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .visual-item {
+            position: relative;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .visual-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .visual-item img:hover {
+            transform: scale(1.05);
+        }
+
+        .visual-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            color: white;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        /* ROI Info */
+        .roi-info {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .roi-info h4 {
+            color: #0369a1;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .roi-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #0c4a6e;
+        }
+
+        /* Error State */
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            color: #dc2626;
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 350px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 40vh;
+                margin-top: 0;
+            }
+            
+            .map-container {
+                margin-top: 0;
+            }
+        }
+
+        /* Popup Styles */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .popup-content {
+            padding: 1rem;
+            max-width: 300px;
+        }
+
+        .popup-content h4 {
+            margin-bottom: 0.5rem;
+            color: #374151;
+        }
+
+        .popup-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        /* Building Analysis Styles */
+        .building-stats {
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-row .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .stat-row .stat-value {
+            font-size: 0.875rem;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .buildings-list h4 {
+            margin-bottom: 0.75rem;
+            color: #374151;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .buildings-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+        }
+
+        .building-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .building-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .building-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .building-id {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+        }
+
+        .building-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+        }
+
+        .building-metric {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .building-metric-label {
+            color: #6b7280;
+        }
+
+        .building-metric-value {
+            color: #111827;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-satellite"></i> GEE Geospatial Analysis Platform</h1>
+            <p>Interactive geospatial analysis using Google Earth Engine • Click on map to analyze locations</p>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-content">
+                <!-- Controls Section -->
+                <div class="section">
+                    <h3><i class="fas fa-cog"></i> Analysis Parameters</h3>
+                    
+                    <div class="controls">
+                        <div class="control-group">
+                            <label for="latitude">Latitude</label>
+                            <input type="number" id="latitude" step="0.000001" placeholder="12.9716" />
+                        </div>
+                        <div class="control-group">
+                            <label for="longitude">Longitude</label>
+                            <input type="number" id="longitude" step="0.000001" placeholder="77.5946" />
+                        </div>
+                        <div class="control-group">
+                            <label for="buffer">Buffer (meters)</label>
+                            <select id="buffer">
+                                <option value="500">500m</option>
+                                <option value="750" selected>750m</option>
+                                <option value="1000">1000m</option>
+                                <option value="1500">1500m</option>
+                                <option value="2000">2000m</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label for="layers">Analysis Type</label>
+                            <select id="layers">
+                                <option value="basic">Basic (NDVI, Elevation, Land Cover)</option>
+                                <option value="vegetation">Vegetation Analysis</option>
+                                <option value="urban">Urban Planning</option>
+                                <option value="buildings">Building Analysis (NEW!)</option>
+                                <option value="water">Water Resources</option>
+                                <option value="complete">Complete Analysis</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button id="analyzeBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                        <i class="fas fa-search"></i> Analyze Location
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing location with Google Earth Engine...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="error" class="error">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Analysis Failed</h4>
+                    <p id="errorMessage"></p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="results">
+                    <!-- ROI Information -->
+                    <div class="roi-info">
+                        <h4><i class="fas fa-map-marker-alt"></i> Region of Interest</h4>
+                        <div class="roi-details">
+                            <div>Area: <span id="roiArea">--</span> ha</div>
+                            <div>Buffer: <span id="roiBuffer">--</span>m</div>
+                            <div>Perimeter: <span id="roiPerimeter">--</span>m</div>
+                            <div>Coordinates: <span id="roiCoords">--</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Key Statistics -->
+                    <div class="section">
+                        <h3><i class="fas fa-chart-line"></i> Key Indicators</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="ndviValue">--</div>
+                                <div class="stat-label">NDVI (Vegetation)</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="elevationValue">--</div>
+                                <div class="stat-label">Elevation (m)</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="slopeValue">--</div>
+                                <div class="stat-label">Slope (°)</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="builtUpValue">--</div>
+                                <div class="stat-label">Built-up (%)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Land Cover Chart -->
+                    <div class="section">
+                        <h3><i class="fas fa-chart-pie"></i> Land Cover Distribution</h3>
+                        <div class="chart-container">
+                            <canvas id="landCoverChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Building Analysis Section -->
+                    <div class="section" id="buildingSection" style="display: none;">
+                        <h3><i class="fas fa-building"></i> Building Analysis</h3>
+                        
+                        <!-- Building Summary Statistics -->
+                        <div class="building-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Total Buildings:</span>
+                                <span class="stat-value" id="totalBuildings">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Average Size:</span>
+                                <span class="stat-value" id="avgBuildingSize">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Total Building Area:</span>
+                                <span class="stat-value" id="totalBuildingArea">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Urban Heat Island:</span>
+                                <span class="stat-value" id="urbanHeatIsland">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Individual Buildings List -->
+                        <div class="buildings-list">
+                            <h4>Individual Buildings</h4>
+                            <div id="buildingsList" class="buildings-container">
+                                <!-- Individual building cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Earth Engine Visualizations -->
+                    <div class="section">
+                        <h3><i class="fas fa-satellite-dish"></i> Satellite Imagery</h3>
+                        <div class="visual-grid" id="visualizations">
+                            <!-- Dynamic content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet and plugins -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+    <script>
+        // Global variables
+        let map;
+        let currentMarker;
+        let currentCircle;
+        let drawnItems;
+        let landCoverChart;
+
+        // Initialize map
+        function initMap() {
+            // Create map centered on India
+            map = L.map('map').setView([20.5937, 78.9629], 5);
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Initialize draw controls
+            drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            const drawControl = new L.Control.Draw({
+                position: 'topleft',
+                draw: {
+                    polygon: true,
+                    marker: true,
+                    circle: false,
+                    rectangle: true,
+                    polyline: false,
+                    circlemarker: false
+                },
+                edit: {
+                    featureGroup: drawnItems,
+                    remove: true
+                }
+            });
+            map.addControl(drawControl);
+
+            // Map click event for point analysis (disabled for building analysis with polygons)
+            map.on('click', function(e) {
+                const selectedLayer = document.getElementById('layers').value;
+                const hasPolygons = drawnItems.getLayers().some(layer => 
+                    layer instanceof L.Polygon || layer instanceof L.Rectangle);
+                
+                // Skip map click if building analysis with polygons
+                if (selectedLayer === 'buildings' && hasPolygons) {
+                    console.log('Skipping map click - using polygon for building analysis');
+                    return;
+                }
+                
+                const lat = e.latlng.lat.toFixed(6);
+                const lon = e.latlng.lng.toFixed(6);
+                
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lon;
+                
+                updateMarker(e.latlng);
+            });
+
+            // Draw events
+            map.on(L.Draw.Event.CREATED, function(e) {
+                const layer = e.layer;
+                drawnItems.addLayer(layer);
+
+                if (e.layerType === 'marker') {
+                    const lat = layer.getLatLng().lat.toFixed(6);
+                    const lon = layer.getLatLng().lng.toFixed(6);
+                    document.getElementById('latitude').value = lat;
+                    document.getElementById('longitude').value = lon;
+                } else if (e.layerType === 'polygon' || e.layerType === 'rectangle') {
+                    // For polygons, calculate centroid and update coordinates
+                    const bounds = layer.getBounds();
+                    const center = bounds.getCenter();
+                    const lat = center.lat.toFixed(6);
+                    const lon = center.lng.toFixed(6);
+                    
+                    document.getElementById('latitude').value = lat;
+                    document.getElementById('longitude').value = lon;
+                    
+                    console.log(`Polygon drawn: center at ${lat}, ${lon}`);
+                    
+                    // Style the polygon for building analysis
+                    const selectedLayer = document.getElementById('layers').value;
+                    if (selectedLayer === 'buildings') {
+                        layer.setStyle({
+                            fillColor: '#ff6b6b',
+                            fillOpacity: 0.3,
+                            color: '#ff6b6b',
+                            weight: 3
+                        });
+                        
+                        // Remove any existing circular markers/buffers
+                        if (window.currentMarker) {
+                            map.removeLayer(window.currentMarker);
+                            window.currentMarker = null;
+                        }
+                        if (window.currentCircle) {
+                            map.removeLayer(window.currentCircle);
+                            window.currentCircle = null;
+                        }
+                        
+                        console.log('🚫 Removed circular buffer - using polygon geometry');
+                    }
+                }
+            });
+        }
+
+        // Update marker and analysis circle
+        function updateMarker(latlng) {
+            const selectedLayer = document.getElementById('layers').value;
+            const hasPolygons = drawnItems.getLayers().some(layer => 
+                layer instanceof L.Polygon || layer instanceof L.Rectangle);
+            
+            // Skip marker and circle for building analysis with polygons
+            if (selectedLayer === 'buildings' && hasPolygons) {
+                console.log('🚫 Skipping marker/circle - using polygon geometry for building analysis');
+                // Remove any existing markers/circles when using polygon
+                if (currentMarker) {
+                    map.removeLayer(currentMarker);
+                    currentMarker = null;
+                }
+                if (currentCircle) {
+                    map.removeLayer(currentCircle);
+                    currentCircle = null;
+                }
+                return;
+            }
+            
+            // Remove existing marker and circle
+            if (currentMarker) {
+                map.removeLayer(currentMarker);
+            }
+            if (currentCircle) {
+                map.removeLayer(currentCircle);
+            }
+
+            // Add new marker
+            currentMarker = L.marker(latlng, {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<i class="fas fa-map-pin" style="color: #667eea; font-size: 24px;"></i>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 24]
+                })
+            }).addTo(map);
+
+            // Add analysis circle
+            const buffer = parseInt(document.getElementById('buffer').value);
+            currentCircle = L.circle(latlng, {
+                radius: buffer,
+                fillColor: '#667eea',
+                fillOpacity: 0.2,
+                color: '#667eea',
+                weight: 2
+            }).addTo(map);
+        }
+
+        // Get layer configuration
+        function getLayerConfig() {
+            const layerType = document.getElementById('layers').value;
+            const configs = {
+                'basic': ['ndvi', 'elevation', 'landcover'],
+                'vegetation': ['ndvi', 'ndwi', 'elevation', 'landcover'],
+                'urban': ['ndvi', 'ndbi', 'elevation', 'slope', 'landcover'],
+                'buildings': ['ndvi', 'elevation', 'landcover', 'buildings'],
+                'water': ['ndvi', 'ndwi', 'water_occurrence', 'elevation'],
+                'complete': ['ndvi', 'ndbi', 'ndwi', 'elevation', 'slope', 'landcover', 'water_occurrence', 'rainfall', 'buildings']
+            };
+            return configs[layerType] || configs['basic'];
+        }
+
+        // Analyze location
+        async function analyzeLocation() {
+            let lat = parseFloat(document.getElementById('latitude').value);
+            let lon = parseFloat(document.getElementById('longitude').value);
+            const buffer = parseInt(document.getElementById('buffer').value);
+            const layers = getLayerConfig();
+            
+            const selectedLayer = document.getElementById('layers').value;
+            let requestBody;
+            
+            // Check if buildings analysis is selected and there are drawn polygons
+            if (selectedLayer === 'buildings' && drawnItems.getLayers().length > 0) {
+                // Find the most recent polygon
+                const polygons = drawnItems.getLayers().filter(layer => 
+                    layer instanceof L.Polygon || layer instanceof L.Rectangle);
+                
+                if (polygons.length > 0) {
+                    // Use the polygon geometry directly
+                    const polygon = polygons[polygons.length - 1];
+                    const geoJSON = polygon.toGeoJSON();
+                    
+                    console.log('Using polygon geometry for building analysis:', geoJSON);
+                    
+                    // Create polygon-based request
+                    requestBody = {
+                        geometry: geoJSON,
+                        layer: 'buildings'
+                    };
+                } else {
+                    // Fallback to point analysis if no polygon
+                    requestBody = {
+                        lat: lat,
+                        lon: lon,
+                        buffer_m: buffer,
+                        layers: layers
+                    };
+                }
+            } else {
+                // Standard point-based analysis
+                if (!lat || !lon) {
+                    showError('Please provide valid coordinates');
+                    return;
+                }
+                
+                requestBody = {
+                    lat: lat,
+                    lon: lon,
+                    buffer_m: buffer,
+                    layers: layers
+                };
+            }
+
+            if (!requestBody) {
+                showError('Please provide valid coordinates or draw a polygon for building analysis');
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+
+            try {
+                // Choose endpoint based on request type
+                const endpoint = requestBody.geometry ? 'http://localhost:8001/analyze-polygon' : 'http://localhost:8001/analyze-location';
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    console.error('Error response:', errorData);
+                    throw new Error(`Server error (${response.status}): ${errorData}`);
+                }
+
+                const data = await response.json();
+                console.log('Success! Data received:', data);
+                console.log('Data keys:', Object.keys(data));
+                console.log('Earth engine keys:', Object.keys(data.earth_engine || {}));
+                console.log('Building data check:', data.earth_engine?.buildings);
+                console.log('Direct buildings check:', data.buildings);
+                console.log('Full earth_engine data:', data.earth_engine);
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Analysis error:', error);
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    showError('Cannot connect to API server. Make sure the server is running on localhost:8001');
+                } else {
+                    showError(`Analysis failed: ${error.message}`);
+                }
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Display analysis results
+        function displayResults(data) {
+            console.log('displayResults called with:', data);
+            const summary = data.earth_engine.summary;
+            const landcover = data.earth_engine.landcover_histogram;
+            const visuals = data.earth_engine.visuals;
+            const roi = data.earth_engine.roi;
+            const buildings = data.earth_engine.buildings;
+            
+            console.log('Buildings data extracted:', buildings);
+            console.log('Building section element:', document.getElementById('buildingSection'));
+
+            // Update ROI information
+            document.getElementById('roiArea').textContent = roi.area_hectares.toFixed(2);
+            document.getElementById('roiBuffer').textContent = roi.buffer_meters;
+            document.getElementById('roiPerimeter').textContent = roi.perimeter_meters.toFixed(0);
+            document.getElementById('roiCoords').textContent = `${roi.center_lat.toFixed(4)}, ${roi.center_lon.toFixed(4)}`;
+
+            // Update key statistics
+            document.getElementById('ndviValue').textContent = summary.ndvi_mean ? summary.ndvi_mean.toFixed(3) : '--';
+            document.getElementById('elevationValue').textContent = summary.elevation_mean ? Math.round(summary.elevation_mean) + 'm' : '--';
+            document.getElementById('slopeValue').textContent = summary.slope_mean ? summary.slope_mean.toFixed(1) + '°' : '--';
+            document.getElementById('builtUpValue').textContent = landcover.built_up ? landcover.built_up.toFixed(1) + '%' : '--';
+
+            // Update land cover chart
+            updateLandCoverChart(landcover);
+
+            // Update building analysis (if available)
+            console.log('Checking building analysis...');
+            console.log('Buildings truthy?', !!buildings);
+            console.log('Buildings type:', typeof buildings);
+            console.log('Buildings content:', buildings);
+            
+            if (buildings) {
+                console.log('✅ Building data found, calling displayBuildingAnalysis');
+                displayBuildingAnalysis(buildings);
+                document.getElementById('buildingSection').style.display = 'block';
+                console.log('✅ Building section should now be visible');
+            } else {
+                console.log('❌ No building data found, hiding section');
+                // TEMPORARILY FORCE SHOW FOR DEBUGGING
+                document.getElementById('buildingSection').style.display = 'block';
+                console.log('🔧 FORCED building section visible for debugging');
+            }
+
+            // Update visualizations
+            updateVisualizations(visuals);
+
+            // Add popup to marker
+            if (currentMarker) {
+                const popupContent = createPopupContent(summary, landcover, buildings);
+                currentMarker.bindPopup(popupContent).openPopup();
+            }
+
+            // Show results
+            document.getElementById('results').style.display = 'block';
+        }
+
+        // Create popup content
+        function createPopupContent(summary, landcover, buildings) {
+            let popupHtml = `
+                <div class="popup-content">
+                    <h4><i class="fas fa-chart-bar"></i> Analysis Results</h4>
+                    <div class="popup-stats">
+                        <div><strong>NDVI:</strong> ${summary.ndvi_mean ? summary.ndvi_mean.toFixed(3) : 'N/A'}</div>
+                        <div><strong>Elevation:</strong> ${summary.elevation_mean ? Math.round(summary.elevation_mean) + 'm' : 'N/A'}</div>
+                        <div><strong>Built-up:</strong> ${landcover.built_up ? landcover.built_up.toFixed(1) + '%' : 'N/A'}</div>
+                        <div><strong>Tree Cover:</strong> ${landcover.tree_cover ? landcover.tree_cover.toFixed(1) + '%' : 'N/A'}</div>`;
+            
+            if (buildings) {
+                popupHtml += `
+                        <div><strong>Buildings:</strong> ${buildings.building_summary.total_buildings}</div>
+                        <div><strong>Avg Size:</strong> ${buildings.building_summary.average_building_area_sqm.toFixed(0)}m²</div>`;
+            }
+            
+            popupHtml += `
+                    </div>
+                </div>
+            `;
+            return popupHtml;
+        }
+
+        // Update land cover chart
+        function updateLandCoverChart(landcover) {
+            const ctx = document.getElementById('landCoverChart').getContext('2d');
+            
+            if (landCoverChart) {
+                landCoverChart.destroy();
+            }
+
+            const colors = {
+                tree_cover: '#22c55e',
+                built_up: '#ef4444',
+                cropland: '#f59e0b',
+                grassland: '#84cc16',
+                shrubland: '#8b5cf6',
+                permanent_water_bodies: '#3b82f6',
+                bare_sparse_vegetation: '#d1d5db'
+            };
+
+            const validData = Object.entries(landcover)
+                .filter(([key, value]) => value > 0)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 6); // Top 6 categories
+
+            landCoverChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: validData.map(([key]) => key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())),
+                    datasets: [{
+                        data: validData.map(([, value]) => value),
+                        backgroundColor: validData.map(([key]) => colors[key] || '#6b7280'),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update visualizations
+        function updateVisualizations(visuals) {
+            const container = document.getElementById('visualizations');
+            container.innerHTML = '';
+
+            const visualTypes = {
+                'ndvi_url': 'NDVI (Vegetation)',
+                'elevation_url': 'Elevation',
+                'landcover_url': 'Land Cover',
+                'true_color_url': 'True Color'
+            };
+
+            Object.entries(visualTypes).forEach(([key, label]) => {
+                if (visuals[key]) {
+                    const visualItem = document.createElement('div');
+                    visualItem.className = 'visual-item';
+                    visualItem.innerHTML = `
+                        <img src="${visuals[key]}" alt="${label}" onclick="openImageModal('${visuals[key]}', '${label}')">
+                        <div class="visual-label">${label}</div>
+                    `;
+                    container.appendChild(visualItem);
+                }
+            });
+        }
+
+        // Open image in modal (simple implementation)
+        function openImageModal(url, title) {
+            window.open(url, '_blank');
+        }
+
+        // Show error message
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+        }
+
+        // Building Analysis Functions
+        function displayBuildingAnalysis(buildings) {
+            const summary = buildings.building_summary;
+            const context = buildings.urban_context;
+            const individualBuildings = buildings.individual_buildings;
+
+            // Update building summary statistics
+            document.getElementById('totalBuildings').textContent = summary.total_buildings;
+            document.getElementById('avgBuildingSize').textContent = summary.average_building_area_sqm.toFixed(0) + ' m²';
+            document.getElementById('totalBuildingArea').textContent = (summary.total_building_area_sqm / 10000).toFixed(2) + ' ha';
+            document.getElementById('urbanHeatIsland').textContent = context.urban_heat_island_intensity.toFixed(1) + ' °C';
+
+            // Display individual buildings
+            displayIndividualBuildings(individualBuildings);
+
+            // Add building visualizations to map if available
+            if (buildings.visualization_urls.buildings_url) {
+                addBuildingLayer(buildings.visualization_urls.buildings_url);
+            }
+        }
+
+        function displayIndividualBuildings(buildings) {
+            const container = document.getElementById('buildingsList');
+            container.innerHTML = '';
+
+            if (!buildings || buildings.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #6b7280; font-style: italic;">No individual buildings analyzed</p>';
+                return;
+            }
+
+            buildings.forEach((building, index) => {
+                const buildingCard = document.createElement('div');
+                buildingCard.className = 'building-card';
+                buildingCard.innerHTML = `
+                    <div class="building-id">Building #${index + 1} ${building.building_id ? `(${building.building_id})` : ''}</div>
+                    <div class="building-metrics">
+                        <div class="building-metric">
+                            <span class="building-metric-label">Area:</span>
+                            <span class="building-metric-value">${building.area_sqm.toFixed(0)} m²</span>
+                        </div>
+                        <div class="building-metric">
+                            <span class="building-metric-label">Confidence:</span>
+                            <span class="building-metric-value">${(building.confidence * 100).toFixed(0)}%</span>
+                        </div>
+                        <div class="building-metric">
+                            <span class="building-metric-label">Elevation:</span>
+                            <span class="building-metric-value">${building.elevation_mean.toFixed(0)} m</span>
+                        </div>
+                        <div class="building-metric">
+                            <span class="building-metric-label">Green Index:</span>
+                            <span class="building-metric-value">${building.surrounding_ndvi_mean.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+
+                // Add click event to focus on building
+                buildingCard.addEventListener('click', () => {
+                    focusOnBuilding(building);
+                });
+
+                container.appendChild(buildingCard);
+            });
+        }
+
+        function focusOnBuilding(building) {
+            // Zoom to building location
+            map.setView([building.centroid_lat, building.centroid_lon], 18);
+            
+            // Add a temporary marker for the building
+            const buildingMarker = L.marker([building.centroid_lat, building.centroid_lon], {
+                icon: L.divIcon({
+                    className: 'building-marker',
+                    html: '<i class="fas fa-building" style="color: #ef4444; font-size: 16px;"></i>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(map);
+
+            // Create detailed popup for building
+            const popupContent = `
+                <div class="popup-content">
+                    <h4><i class="fas fa-building"></i> Building Details</h4>
+                    <div style="font-size: 0.875rem;">
+                        <p><strong>Area:</strong> ${building.area_sqm.toFixed(0)} m² (${building.perimeter_m.toFixed(0)}m perimeter)</p>
+                        <p><strong>Detection Confidence:</strong> ${(building.confidence * 100).toFixed(0)}%</p>
+                        <p><strong>Elevation:</strong> ${building.elevation_min.toFixed(0)}-${building.elevation_max.toFixed(0)}m (avg: ${building.elevation_mean.toFixed(0)}m)</p>
+                        <p><strong>Surrounding Vegetation:</strong> NDVI ${building.surrounding_ndvi_mean.toFixed(3)} ± ${building.surrounding_ndvi_std.toFixed(3)}</p>
+                        <p><strong>Location:</strong> ${building.centroid_lat.toFixed(6)}, ${building.centroid_lon.toFixed(6)}</p>
+                    </div>
+                </div>
+            `;
+
+            buildingMarker.bindPopup(popupContent).openPopup();
+
+            // Remove marker after 10 seconds
+            setTimeout(() => {
+                map.removeLayer(buildingMarker);
+            }, 10000);
+        }
+
+        function addBuildingLayer(buildingUrl) {
+            // Add building overlay to map
+            if (buildingLayer) {
+                map.removeLayer(buildingLayer);
+            }
+
+            buildingLayer = L.tileLayer(buildingUrl, {
+                attribution: 'Google Earth Engine',
+                opacity: 0.8
+            }).addTo(map);
+        }
+
+        // Global variable for building layer
+        let buildingLayer = null;
+
+        // Event listeners
+        document.getElementById('analyzeBtn').addEventListener('click', analyzeLocation);
+
+        // Update circle when buffer changes
+        document.getElementById('buffer').addEventListener('change', function() {
+            if (currentMarker && currentCircle) {
+                const newRadius = parseInt(this.value);
+                currentCircle.setRadius(newRadius);
+            }
+        });
+
+        // Initialize map when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+        });
+    </script>
+</body>
+</html>

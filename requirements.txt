@@ -1,0 +1,33 @@
+# FastAPI and web server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Data validation and serialization
+pydantic>=2.5.0
+
+# Google Earth Engine and authentication
+earthengine-api>=0.1.370
+google-auth>=2.20.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.1.0
+
+# File upload and form handling
+python-multipart>=0.0.6
+
+# HTTP requests
+requests>=2.31.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0
+
+# Additional dependencies for geospatial analysis
+numpy>=1.24.0
+pandas>=2.1.0
+
+# Optional: for better logging
+loguru>=0.7.0

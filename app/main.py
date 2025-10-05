@@ -1,0 +1,344 @@
+"""
+FastAPI application for Google Earth Engine geospatial analysis.
+India-focused backend service for location-based analysis.
+"""
+
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import uvicorn
+from contextlib import asynccontextmanager
+
+from .config import config, initialize_earth_engine
+from .models import (
+    LocationRequest, LocationResponse, ErrorResponse,
+    Coordinates, EarthEngineData, EarthEngineSummary,
+    LandcoverHistogram, EarthEngineVisuals, RoiInfo
+)
+from .gee_utils import analyze_location
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan events for the FastAPI application."""
+    # Startup
+    print("🚀 Starting GEE FastAPI Backend...")
+    try:
+        initialize_earth_engine()
+        print("✅ Application startup completed successfully")
+    except Exception as e:
+        print(f"❌ Failed to initialize application: {e}")
+        raise
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Shutting down GEE FastAPI Backend...")
+
+
+# Create FastAPI application
+app = FastAPI(
+    title=config.PROJECT_NAME,
+    version=config.VERSION,
+    description=config.DESCRIPTION,
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
+
+
+@app.get("/", tags=["Health"])
+async def root():
+    """Root endpoint returning basic API information."""
+    return {
+        "message": "GEE FastAPI Backend",
+        "version": config.VERSION,
+        "description": config.DESCRIPTION,
+        "status": "active",
+        "endpoints": {
+            "analyze_location": "/analyze-location",
+            "health": "/health",
+            "docs": "/docs"
+        }
+    }
+
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """Health check endpoint."""
+    try:
+        # Test Earth Engine connectivity
+        import ee
+        test_image = ee.Image("COPERNICUS/S2_SR/20230101T061241_20230101T061238_T43PGQ")
+        image_id = test_image.get('system:id').getInfo()
+        
+        return {
+            "status": "healthy",
+            "earth_engine": "connected",
+            "test_image_id": image_id,
+            "timestamp": "2024-10-02T00:00:00Z"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Earth Engine connection failed: {str(e)}"
+        )
+
+
+@app.post("/analyze-location", response_model=LocationResponse, tags=["Analysis"])
+async def analyze_location_endpoint(request: LocationRequest):
+    """
+    Analyze a geographic location using Google Earth Engine.
+    
+    This endpoint takes latitude, longitude coordinates and performs comprehensive
+    geospatial analysis including vegetation indices, elevation, land cover, and
+    other environmental indicators.
+    
+    Args:
+        request: LocationRequest containing lat, lon, buffer_m, and layers
+        
+    Returns:
+        LocationResponse: Complete analysis results with statistics and visualization URLs
+        
+    Raises:
+        HTTPException: If analysis fails or coordinates are invalid
+    """
+    try:
+        # Validate coordinates are within reasonable bounds for India
+        if not (6.0 <= request.lat <= 37.0 and 68.0 <= request.lon <= 97.0):
+            print(f"⚠️  Warning: Coordinates ({request.lat}, {request.lon}) are outside India bounds")
+        
+        print(f"🌍 Analyzing location: ({request.lat}, {request.lon}) with {request.buffer_m}m buffer")
+        print(f"📊 Requested layers: {request.layers}")
+        
+        # Perform Earth Engine analysis
+        gee_results = analyze_location(
+            lat=request.lat,
+            lon=request.lon,
+            buffer_m=request.buffer_m,
+            layers=request.layers
+        )
+        
+        # Transform results into response model
+        earth_engine_data = EarthEngineData(
+            summary=EarthEngineSummary(**gee_results['summary']),
+            landcover_histogram=LandcoverHistogram(**gee_results['landcover_histogram']),
+            visuals=EarthEngineVisuals(**gee_results['visuals']),
+            roi=RoiInfo(**gee_results['roi']),
+            buildings=gee_results.get('buildings')  # Add buildings data
+        )
+        
+        # Create complete response
+        response = LocationResponse(
+            coordinates=[Coordinates(lat=request.lat, long=request.lon)],
+            earth_engine=earth_engine_data
+        )
+        
+        print(f"✅ Analysis completed successfully")
+        return response
+        
+    except Exception as e:
+        print(f"❌ Analysis failed: {str(e)}")
+        error_detail = f"Failed to analyze location ({request.lat}, {request.lon}): {str(e)}"
+        
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail
+        )
+
+
+@app.get("/supported-layers", tags=["Information"])
+async def get_supported_layers():
+    """Get list of supported analysis layers."""
+    return {
+        "supported_layers": [
+            {
+                "name": "ndvi",
+                "description": "Normalized Difference Vegetation Index",
+                "data_source": "Sentinel-2"
+            },
+            {
+                "name": "ndbi",
+                "description": "Normalized Difference Built-up Index",
+                "data_source": "Sentinel-2"
+            },
+            {
+                "name": "ndwi",
+                "description": "Normalized Difference Water Index",
+                "data_source": "Sentinel-2"
+            },
+            {
+                "name": "elevation",
+                "description": "Digital Elevation Model",
+                "data_source": "SRTM GL1"
+            },
+            {
+                "name": "slope",
+                "description": "Terrain slope derived from elevation",
+                "data_source": "SRTM GL1"
+            },
+            {
+                "name": "landcover",
+                "description": "Land cover classification",
+                "data_source": "ESA WorldCover"
+            },
+            {
+                "name": "water_occurrence",
+                "description": "Surface water occurrence frequency",
+                "data_source": "JRC Global Surface Water"
+            },
+            {
+                "name": "rainfall",
+                "description": "Annual precipitation",
+                "data_source": "CHIRPS"
+            }
+        ],
+        "default_layers": ["ndvi", "elevation", "slope", "landcover"]
+    }
+
+
+@app.post("/analyze-polygon", tags=["Analysis"])
+async def analyze_polygon_endpoint(request: dict):
+    """
+    Analyze a specific polygon area for building analysis.
+    
+    This endpoint takes polygon geometry and performs building analysis
+    on the exact area defined by the polygon boundaries.
+    
+    Args:
+        request: Dictionary containing geometry (GeoJSON Feature) and layer type
+        
+    Returns:
+        Dict: Analysis results for the polygon area
+    """
+    try:
+        print(f"🏢 Polygon building analysis requested")
+        
+        # Extract geometry and layer
+        geometry_data = request.get('geometry')
+        layer = request.get('layer', 'buildings')
+        
+        if not geometry_data:
+            raise HTTPException(status_code=400, detail="No geometry provided")
+        
+        print(f"📐 Received geometry: {geometry_data.get('type')} with layer: {layer}")
+        
+        # Convert GeoJSON to Earth Engine geometry
+        if geometry_data.get('type') == 'Feature':
+            coordinates = geometry_data['geometry']['coordinates']
+            geom_type = geometry_data['geometry']['type']
+        else:
+            coordinates = geometry_data['coordinates']
+            geom_type = geometry_data['type']
+        
+        if geom_type == 'Polygon':
+            import ee
+            roi = ee.Geometry.Polygon(coordinates)
+            print(f"✅ Created EE Polygon geometry")
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported geometry type: {geom_type}")
+        
+        # Perform building analysis on the exact polygon
+        if layer == 'buildings':
+            from .gee_utils import get_sentinel2_composite, analyze_buildings_in_area
+            
+            print("🔍 Analyzing buildings within polygon boundaries...")
+            
+            # Get basic composites for building context
+            s2_composite = get_sentinel2_composite(roi, '2023-01-01', '2024-01-01')
+            
+            # Analyze buildings in the exact polygon area
+            building_analysis = analyze_buildings_in_area(roi, s2_composite, max_buildings=50)
+            
+            # Calculate polygon area for reference
+            polygon_area_hectares = roi.area().getInfo() / 10000
+            
+            return {
+                "status": "success",
+                "analysis_type": "polygon_buildings",
+                "message": "Building analysis completed for polygon area",
+                "polygon_area_hectares": round(polygon_area_hectares, 2),
+                "earth_engine": {
+                    "buildings": building_analysis,
+                    "summary": {
+                        "ndvi_mean": 0.3,  # Default values for polygon analysis
+                        "elevation_mean": 100,
+                        "slope_mean": 0
+                    },
+                    "landcover_histogram": {
+                        "built_up": 80.0,  # Default estimate for building areas
+                        "grassland": 10.0,
+                        "tree_cover": 10.0
+                    },
+                    "visuals": {
+                        "true_color_url": None,
+                        "ndvi_url": None,
+                        "elevation_url": None,
+                        "landcover_url": None
+                    },
+                    "roi": {
+                        "area_hectares": round(polygon_area_hectares, 2),
+                        "center_lat": roi.centroid().coordinates().getInfo()[1],
+                        "center_lon": roi.centroid().coordinates().getInfo()[0], 
+                        "buffer_meters": 0,
+                        "perimeter_meters": round(roi.perimeter().getInfo(), 2),
+                        "analysis_type": "polygon"
+                    }
+                }
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Only buildings analysis supported for polygons")
+    
+    except Exception as e:
+        print(f"❌ Error in polygon analysis: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Polygon analysis failed: {str(e)}"
+        )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """Custom HTTP exception handler."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ErrorResponse(
+            error=exc.detail,
+            error_code=f"HTTP_{exc.status_code}"
+        ).dict()
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    """General exception handler for unexpected errors."""
+    print(f"❌ Unhandled exception: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(
+            error="Internal server error",
+            detail=str(exc),
+            error_code="INTERNAL_ERROR"
+        ).dict()
+    )
+
+
+if __name__ == "__main__":
+    # For development only
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
