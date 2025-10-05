@@ -1,0 +1,1 @@
+curl "http://localhost:8002/viirs-vegetation-indices?region=Bangalore%20Rural&state_name=Karnataka&start_date=2023-06-01&end_date=2023-08-31&indices=NDVI&include_map=false"
