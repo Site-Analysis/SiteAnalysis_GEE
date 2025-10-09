@@ -133,7 +133,9 @@ async def analyze_location_endpoint(request: LocationRequest):
             landcover_histogram=LandcoverHistogram(**gee_results['landcover_histogram']),
             visuals=EarthEngineVisuals(**gee_results['visuals']),
             roi=RoiInfo(**gee_results['roi']),
-            buildings=gee_results.get('buildings')  # Add buildings data
+            buildings=gee_results.get('buildings'),  # Add buildings data
+            administrative=gee_results.get('administrative'),  # Add administrative data
+            vegetation=gee_results.get('vegetation')  # Add vegetation data
         )
         
         # Create complete response
@@ -199,6 +201,21 @@ async def get_supported_layers():
                 "name": "rainfall",
                 "description": "Annual precipitation",
                 "data_source": "CHIRPS"
+            },
+            {
+                "name": "buildings",
+                "description": "Individual building analysis and urban context",
+                "data_source": "Google Research Open Buildings v3"
+            },
+            {
+                "name": "administrative",
+                "description": "Administrative boundaries (countries, states, districts)",
+                "data_source": "FAO GAUL Administrative Boundaries"
+            },
+            {
+                "name": "vegetation",
+                "description": "Comprehensive vegetation analysis with NDVI, EVI, SAVI indices and health metrics",
+                "data_source": "Sentinel-2 + MODIS"
             }
         ],
         "default_layers": ["ndvi", "elevation", "slope", "landcover"]
@@ -246,7 +263,7 @@ async def analyze_polygon_endpoint(request: dict):
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported geometry type: {geom_type}")
         
-        # Perform building analysis on the exact polygon
+        # Perform analysis on the exact polygon
         if layer == 'buildings':
             from .gee_utils import get_sentinel2_composite, analyze_buildings_in_area
             
@@ -294,8 +311,107 @@ async def analyze_polygon_endpoint(request: dict):
                     }
                 }
             }
+        
+        elif layer == 'administrative':
+            from .gee_utils import analyze_administrative_boundaries, get_administrative_visualization
+            
+            print("🏛️ Analyzing administrative boundaries within polygon...")
+            
+            # Analyze administrative boundaries in the exact polygon area
+            admin_analysis = analyze_administrative_boundaries(roi)
+            
+            # Add visualization URL for polygon-clipped boundaries
+            admin_analysis['admin_boundaries_url'] = get_administrative_visualization(roi)
+            
+            # Calculate polygon area for reference
+            polygon_area_hectares = roi.area().getInfo() / 10000
+            
+            return {
+                "status": "success",
+                "analysis_type": "polygon_administrative",
+                "message": "Administrative boundaries analysis completed for polygon area",
+                "polygon_area_hectares": round(polygon_area_hectares, 2),
+                "earth_engine": {
+                    "administrative": admin_analysis,
+                    "summary": {
+                        "ndvi_mean": 0.3,  # Default values for polygon analysis
+                        "elevation_mean": 100,
+                        "slope_mean": 0
+                    },
+                    "landcover_histogram": {
+                        "built_up": 50.0,  # Default estimate
+                        "grassland": 25.0,
+                        "tree_cover": 25.0
+                    },
+                    "visuals": {
+                        "true_color_url": None,
+                        "ndvi_url": None,
+                        "elevation_url": None,
+                        "landcover_url": None
+                    },
+                    "roi": {
+                        "area_hectares": round(polygon_area_hectares, 2),
+                        "center_lat": roi.centroid().coordinates().getInfo()[1],
+                        "center_lon": roi.centroid().coordinates().getInfo()[0], 
+                        "buffer_meters": 0,
+                        "perimeter_meters": round(roi.perimeter().getInfo(), 2),
+                        "analysis_type": "polygon"
+                    }
+                }
+            }
+        
+        elif layer == 'vegetation':
+            from .gee_utils import analyze_viirs_vegetation, get_viirs_visualization_urls
+            
+            print("🌱 Analyzing VIIRS vegetation within polygon...")
+            
+            # Analyze VIIRS vegetation in the exact polygon area
+            vegetation_analysis = analyze_viirs_vegetation(roi)
+            
+            # Add VIIRS visualization URLs for polygon-clipped area
+            viirs_vis_urls = get_viirs_visualization_urls(roi)
+            vegetation_analysis.update(viirs_vis_urls)
+            
+            # Calculate polygon area for reference
+            polygon_area_hectares = roi.area().getInfo() / 10000
+            
+            return {
+                "status": "success",
+                "analysis_type": "polygon_vegetation",
+                "message": "VIIRS vegetation analysis completed for polygon area",
+                "polygon_area_hectares": round(polygon_area_hectares, 2),
+                "earth_engine": {
+                    "vegetation": vegetation_analysis,
+                    "summary": {
+                        "ndvi_mean": vegetation_analysis.get('viirs_ndvi_mean', 0.3),
+                        "elevation_mean": 100,  # Default values
+                        "slope_mean": 0
+                    },
+                    "landcover_histogram": {
+                        "tree_cover": vegetation_analysis.get('vegetation_distribution', {}).get('dense_vegetation', 25.0),
+                        "grassland": vegetation_analysis.get('vegetation_distribution', {}).get('moderate_vegetation', 25.0),
+                        "shrubland": vegetation_analysis.get('vegetation_distribution', {}).get('low_vegetation', 25.0),
+                        "bare_sparse_vegetation": vegetation_analysis.get('vegetation_distribution', {}).get('non_vegetated', 25.0)
+                    },
+                    "visuals": {
+                        "true_color_url": None,
+                        "ndvi_url": vegetation_analysis.get('viirs_ndvi_url'),
+                        "elevation_url": None,
+                        "landcover_url": None
+                    },
+                    "roi": {
+                        "area_hectares": round(polygon_area_hectares, 2),
+                        "center_lat": roi.centroid().coordinates().getInfo()[1],
+                        "center_lon": roi.centroid().coordinates().getInfo()[0], 
+                        "buffer_meters": 0,
+                        "perimeter_meters": round(roi.perimeter().getInfo(), 2),
+                        "analysis_type": "polygon"
+                    }
+                }
+            }
+        
         else:
-            raise HTTPException(status_code=400, detail="Only buildings analysis supported for polygons")
+            raise HTTPException(status_code=400, detail=f"Analysis type '{layer}' not yet supported for polygons. Supported: buildings, administrative, vegetation")
     
     except Exception as e:
         print(f"❌ Error in polygon analysis: {str(e)}")

@@ -468,6 +468,87 @@
             color: #111827;
             font-weight: 500;
         }
+
+        /* Administrative Boundaries Styles */
+        .admin-hierarchy {
+            background: linear-gradient(135deg, #fef3c7, #fbbf24);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .hierarchy-path {
+            font-size: 0.875rem;
+            color: #92400e;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+        }
+
+        .admin-summary {
+            background: #f0f9ff;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #0284c7;
+        }
+
+        .admin-units-list h4 {
+            margin-bottom: 0.75rem;
+            color: #374151;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .admin-units-container {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+        }
+
+        .admin-unit-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .admin-unit-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .admin-unit-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .admin-unit-name {
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        .admin-unit-hierarchy {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .admin-unit-area {
+            font-size: 0.75rem;
+            color: #059669;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -516,6 +597,7 @@
                                 <option value="vegetation">Vegetation Analysis</option>
                                 <option value="urban">Urban Planning</option>
                                 <option value="buildings">Building Analysis (NEW!)</option>
+                                <option value="administrative">Administrative Boundaries (NEW!)</option>
                                 <option value="water">Water Resources</option>
                                 <option value="complete">Complete Analysis</option>
                             </select>
@@ -612,6 +694,99 @@
                             <h4>Individual Buildings</h4>
                             <div id="buildingsList" class="buildings-container">
                                 <!-- Individual building cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Administrative Boundaries Section -->
+                    <div class="section" id="administrativeSection" style="display: none;">
+                        <h3><i class="fas fa-map-marked-alt"></i> Administrative Boundaries</h3>
+                        
+                        <!-- Administrative Hierarchy -->
+                        <div class="admin-hierarchy" id="adminHierarchy" style="display: none;">
+                            <h4><i class="fas fa-sitemap"></i> Location Context</h4>
+                            <div class="hierarchy-path">
+                                <span id="adminPath">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Administrative Summary -->
+                        <div class="admin-summary">
+                            <div class="stat-row">
+                                <span class="stat-label">Administrative Units:</span>
+                                <span class="stat-value" id="totalAdminUnits">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Countries:</span>
+                                <span class="stat-value" id="countriesCount">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">States/Provinces:</span>
+                                <span class="stat-value" id="statesCount">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Districts/Counties:</span>
+                                <span class="stat-value" id="districtsCount">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Administrative Units List -->
+                        <div class="admin-units-list">
+                            <h4>Administrative Units in Area</h4>
+                            <div id="adminUnitsList" class="admin-units-container">
+                                <!-- Administrative unit cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vegetation Analysis Section -->
+                    <div class="section" id="vegetationSection" style="display: none;">
+                        <h3><i class="fas fa-leaf"></i> Comprehensive Vegetation Analysis</h3>
+                        
+                        <!-- Primary Vegetation Metrics -->
+                        <div class="vegetation-summary">
+                            <div class="stat-row">
+                                <span class="stat-label">NDVI (Mean):</span>
+                                <span class="stat-value" id="viirsNdviMean">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">EVI (Mean):</span>
+                                <span class="stat-value" id="viirsEviMean">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Vegetation Health Index:</span>
+                                <span class="stat-value" id="vegetationHealth">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Vegetation Distribution -->
+                        <div class="vegetation-distribution">
+                            <h4><i class="fas fa-chart-pie"></i> Vegetation Coverage Distribution</h4>
+                            <div class="distribution-stats">
+                                <div class="stat-row">
+                                    <span class="stat-label">🏜️ Non-Vegetated Areas:</span>
+                                    <span class="stat-value" id="nonVegetatedPercent">--</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">🌱 Low Vegetation:</span>
+                                    <span class="stat-value" id="lowVegetationPercent">--</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">🌿 Moderate Vegetation:</span>
+                                    <span class="stat-value" id="moderateVegetationPercent">--</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">🌳 Dense Vegetation:</span>
+                                    <span class="stat-value" id="denseVegetationPercent">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vegetation Visualizations -->
+                        <div class="vegetation-visuals">
+                            <h4><i class="fas fa-satellite"></i> Vegetation Maps & Analysis</h4>
+                            <div class="visual-grid" id="viirsVisualizations">
+                                <!-- Vegetation visualization tiles will be inserted here -->
                             </div>
                         </div>
                     </div>
@@ -795,11 +970,12 @@
             const layerType = document.getElementById('layers').value;
             const configs = {
                 'basic': ['ndvi', 'elevation', 'landcover'],
-                'vegetation': ['ndvi', 'ndwi', 'elevation', 'landcover'],
+                'vegetation': ['ndvi', 'ndwi', 'elevation', 'landcover', 'vegetation'],
                 'urban': ['ndvi', 'ndbi', 'elevation', 'slope', 'landcover'],
                 'buildings': ['ndvi', 'elevation', 'landcover', 'buildings'],
+                'administrative': ['ndvi', 'elevation', 'landcover', 'administrative'],
                 'water': ['ndvi', 'ndwi', 'water_occurrence', 'elevation'],
-                'complete': ['ndvi', 'ndbi', 'ndwi', 'elevation', 'slope', 'landcover', 'water_occurrence', 'rainfall', 'buildings']
+                'complete': ['ndvi', 'ndbi', 'ndwi', 'elevation', 'slope', 'landcover', 'water_occurrence', 'rainfall', 'buildings', 'administrative', 'vegetation']
             };
             return configs[layerType] || configs['basic'];
         }
@@ -811,11 +987,14 @@
             const buffer = parseInt(document.getElementById('buffer').value);
             const layers = getLayerConfig();
             
+            console.log('🔍 Analysis layers to be sent:', layers);
+            console.log('🔍 Selected layer type:', document.getElementById('layers').value);
+            
             const selectedLayer = document.getElementById('layers').value;
             let requestBody;
             
-            // Check if buildings analysis is selected and there are drawn polygons
-            if (selectedLayer === 'buildings' && drawnItems.getLayers().length > 0) {
+            // Check if polygon-based analysis is selected and there are drawn polygons
+            if ((selectedLayer === 'buildings' || selectedLayer === 'administrative') && drawnItems.getLayers().length > 0) {
                 // Find the most recent polygon
                 const polygons = drawnItems.getLayers().filter(layer => 
                     layer instanceof L.Polygon || layer instanceof L.Rectangle);
@@ -825,12 +1004,12 @@
                     const polygon = polygons[polygons.length - 1];
                     const geoJSON = polygon.toGeoJSON();
                     
-                    console.log('Using polygon geometry for building analysis:', geoJSON);
+                    console.log(`Using polygon geometry for ${selectedLayer} analysis:`, geoJSON);
                     
                     // Create polygon-based request
                     requestBody = {
                         geometry: geoJSON,
-                        layer: 'buildings'
+                        layer: selectedLayer  // Use the actual selected layer (buildings or administrative)
                     };
                 } else {
                     // Fallback to point analysis if no polygon
@@ -857,9 +1036,11 @@
             }
 
             if (!requestBody) {
-                showError('Please provide valid coordinates or draw a polygon for building analysis');
+                showError('Please provide valid coordinates or draw a polygon for polygon-based analysis');
                 return;
             }
+
+            console.log('📤 Request body being sent:', JSON.stringify(requestBody, null, 2));
 
             // Show loading state
             document.getElementById('loading').style.display = 'block';
@@ -916,8 +1097,11 @@
             const visuals = data.earth_engine.visuals;
             const roi = data.earth_engine.roi;
             const buildings = data.earth_engine.buildings;
+            const administrative = data.earth_engine.administrative;
+            const vegetation = data.earth_engine.vegetation;
             
             console.log('Buildings data extracted:', buildings);
+            console.log('Administrative data extracted:', administrative);
             console.log('Building section element:', document.getElementById('buildingSection'));
 
             // Update ROI information
@@ -953,12 +1137,34 @@
                 console.log('🔧 FORCED building section visible for debugging');
             }
 
+            // Update administrative analysis (if available)
+            console.log('Checking administrative analysis...');
+            if (administrative) {
+                console.log('✅ Administrative data found, calling displayAdministrativeAnalysis');
+                displayAdministrativeAnalysis(administrative);
+                document.getElementById('administrativeSection').style.display = 'block';
+            } else {
+                console.log('❌ No administrative data found, hiding section');
+                document.getElementById('administrativeSection').style.display = 'none';
+            }
+
+            // Update vegetation analysis (if available)
+            console.log('Checking vegetation analysis...');
+            if (vegetation) {
+                console.log('✅ Vegetation data found, calling displayVegetationAnalysis');
+                displayVegetationAnalysis(vegetation);
+                document.getElementById('vegetationSection').style.display = 'block';
+            } else {
+                console.log('❌ No vegetation data found, hiding section');
+                document.getElementById('vegetationSection').style.display = 'none';
+            }
+
             // Update visualizations
             updateVisualizations(visuals);
 
             // Add popup to marker
             if (currentMarker) {
-                const popupContent = createPopupContent(summary, landcover, buildings);
+                const popupContent = createPopupContent(summary, landcover, buildings, administrative);
                 currentMarker.bindPopup(popupContent).openPopup();
             }
 
@@ -967,7 +1173,7 @@
         }
 
         // Create popup content
-        function createPopupContent(summary, landcover, buildings) {
+        function createPopupContent(summary, landcover, buildings, administrative) {
             let popupHtml = `
                 <div class="popup-content">
                     <h4><i class="fas fa-chart-bar"></i> Analysis Results</h4>
@@ -981,6 +1187,12 @@
                 popupHtml += `
                         <div><strong>Buildings:</strong> ${buildings.building_summary.total_buildings}</div>
                         <div><strong>Avg Size:</strong> ${buildings.building_summary.average_building_area_sqm.toFixed(0)}m²</div>`;
+            }
+            
+            if (administrative && administrative.administrative_hierarchy) {
+                popupHtml += `
+                        <div><strong>Location:</strong> ${administrative.administrative_hierarchy.district_county}</div>
+                        <div><strong>State:</strong> ${administrative.administrative_hierarchy.state_province}</div>`;
             }
             
             popupHtml += `
@@ -1193,6 +1405,176 @@
 
         // Global variable for building layer
         let buildingLayer = null;
+
+        // Administrative Analysis Functions
+        function displayAdministrativeAnalysis(administrative) {
+            console.log('Displaying administrative analysis:', administrative);
+            
+            const summary = administrative.administrative_summary;
+            const units = administrative.administrative_units;
+            const hierarchy = administrative.administrative_hierarchy;
+
+            // Update administrative summary statistics
+            document.getElementById('totalAdminUnits').textContent = summary.total_units;
+            document.getElementById('countriesCount').textContent = summary.countries_count;
+            document.getElementById('statesCount').textContent = summary.states_count;
+            document.getElementById('districtsCount').textContent = summary.districts_count;
+
+            // Display administrative hierarchy if available
+            if (hierarchy) {
+                document.getElementById('adminPath').textContent = hierarchy.full_path;
+                document.getElementById('adminHierarchy').style.display = 'block';
+            } else {
+                document.getElementById('adminHierarchy').style.display = 'none';
+            }
+
+            // Display administrative units
+            displayAdministrativeUnits(units);
+
+            // Add administrative boundaries visualization to map if available
+            if (administrative.admin_boundaries_url) {
+                addAdministrativeBoundariesLayer(administrative.admin_boundaries_url);
+            }
+        }
+
+        function displayAdministrativeUnits(units) {
+            const container = document.getElementById('adminUnitsList');
+            container.innerHTML = '';
+
+            if (!units || units.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #6b7280; font-style: italic;">No administrative units found in this area</p>';
+                return;
+            }
+
+            units.forEach((unit, index) => {
+                const unitCard = document.createElement('div');
+                unitCard.className = 'admin-unit-card';
+                unitCard.innerHTML = `
+                    <div class="admin-unit-name">${unit.district_county}</div>
+                    <div class="admin-unit-hierarchy">${unit.country} > ${unit.state_province} > ${unit.district_county}</div>
+                    <div class="admin-unit-area">Area within ROI: ${unit.area_within_roi_ha.toFixed(2)} hectares</div>
+                `;
+
+                // Add click event to show unit details
+                unitCard.addEventListener('click', () => {
+                    showAdministrativeUnitDetails(unit);
+                });
+
+                container.appendChild(unitCard);
+            });
+        }
+
+        function showAdministrativeUnitDetails(unit) {
+            // Create a popup or modal with detailed administrative unit information
+            const popupContent = `
+                <div style="padding: 1rem; max-width: 300px;">
+                    <h4><i class="fas fa-map-marker-alt"></i> Administrative Unit</h4>
+                    <div style="font-size: 0.875rem;">
+                        <p><strong>Country:</strong> ${unit.country}</p>
+                        <p><strong>State/Province:</strong> ${unit.state_province}</p>
+                        <p><strong>District/County:</strong> ${unit.district_county}</p>
+                        ${unit.country_code ? `<p><strong>Country Code:</strong> ${unit.country_code}</p>` : ''}
+                        ${unit.state_code ? `<p><strong>State Code:</strong> ${unit.state_code}</p>` : ''}
+                        ${unit.district_code ? `<p><strong>District Code:</strong> ${unit.district_code}</p>` : ''}
+                        <p><strong>Area in ROI:</strong> ${unit.area_within_roi_ha.toFixed(2)} hectares</p>
+                    </div>
+                </div>
+            `;
+
+            // Create a temporary marker to show the popup (you could enhance this to show the actual boundary)
+            const tempMarker = L.marker(map.getCenter())
+                .addTo(map)
+                .bindPopup(popupContent)
+                .openPopup();
+
+            // Remove marker after 8 seconds
+            setTimeout(() => {
+                map.removeLayer(tempMarker);
+            }, 8000);
+        }
+
+        function displayVegetationAnalysis(vegetation) {
+            console.log('Displaying comprehensive vegetation analysis:', vegetation);
+            
+            // Update primary vegetation statistics
+            document.getElementById('viirsNdviMean').textContent = vegetation.viirs_ndvi_mean?.toFixed(3) || '--';
+            document.getElementById('viirsEviMean').textContent = vegetation.viirs_evi_mean?.toFixed(3) || '--';
+            document.getElementById('vegetationHealth').textContent = vegetation.vegetation_health_mean?.toFixed(3) || '--';
+            
+            // Update vegetation distribution
+            if (vegetation.vegetation_distribution) {
+                const dist = vegetation.vegetation_distribution;
+                document.getElementById('nonVegetatedPercent').textContent = `${(dist.non_vegetated || 0).toFixed(1)}%`;
+                document.getElementById('lowVegetationPercent').textContent = `${(dist.low_vegetation || 0).toFixed(1)}%`;
+                document.getElementById('moderateVegetationPercent').textContent = `${(dist.moderate_vegetation || 0).toFixed(1)}%`;
+                document.getElementById('denseVegetationPercent').textContent = `${(dist.dense_vegetation || 0).toFixed(1)}%`;
+            }
+            
+            // Display comprehensive vegetation visualizations
+            displayVegetationVisualizations(vegetation);
+        }
+
+        function displayVegetationVisualizations(vegetation) {
+            const container = document.getElementById('viirsVisualizations');
+            container.innerHTML = '';
+            
+            // Comprehensive vegetation visualization URLs
+            const vegetationVisuals = [
+                { key: 'viirs_ndvi_url', title: 'NDVI (Normalized Difference Vegetation Index)', description: 'Primary vegetation health indicator from Sentinel-2' },
+                { key: 'viirs_evi_url', title: 'EVI (Enhanced Vegetation Index)', description: 'Enhanced vegetation metric for dense canopy areas' },
+                { key: 'savi_url', title: 'SAVI (Soil Adjusted Vegetation Index)', description: 'Vegetation index adjusted for soil background' },
+                { key: 'vegetation_health_url', title: 'Vegetation Health Index', description: 'Combined health metric (NDVI × EVI)' },
+                { key: 'vegetation_classification_url', title: 'Vegetation Classification', description: 'Classified vegetation density levels' }
+            ];
+            
+            let validVisualizationsCount = 0;
+            
+            vegetationVisuals.forEach(visual => {
+                if (vegetation[visual.key] && vegetation[visual.key].length > 10) {
+                    validVisualizationsCount++;
+                    const visualTile = document.createElement('div');
+                    visualTile.className = 'visual-tile';
+                    visualTile.innerHTML = `
+                        <h4>${visual.title}</h4>
+                        <p>${visual.description}</p>
+                        <img src="${vegetation[visual.key]}" alt="${visual.title}" style="width: 100%; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="font-size: 0.8em; color: #6b7280; margin-top: 0.5rem;">
+                            Data Source: ${vegetation.data_source || 'Sentinel-2 + MODIS'}
+                        </div>
+                    `;
+                    container.appendChild(visualTile);
+                }
+            });
+            
+            if (validVisualizationsCount === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #6b7280; font-style: italic; padding: 1rem;">
+                        <p>🌱 Vegetation Analysis Complete!</p>
+                        <p>NDVI Mean: <strong>${vegetation.viirs_ndvi_mean?.toFixed(3) || 'N/A'}</strong></p>
+                        <p>EVI Mean: <strong>${vegetation.viirs_evi_mean?.toFixed(3) || 'N/A'}</strong></p>
+                        <p>Health Index: <strong>${vegetation.vegetation_health_mean?.toFixed(3) || 'N/A'}</strong></p>
+                        <p><em>Visualizations are being processed...</em></p>
+                    </div>
+                `;
+            } else {
+                console.log(`✅ Displayed ${validVisualizationsCount} vegetation visualizations`);
+            }
+        }
+
+        function addAdministrativeBoundariesLayer(boundariesUrl) {
+            // Add administrative boundaries overlay to map
+            if (adminBoundariesLayer) {
+                map.removeLayer(adminBoundariesLayer);
+            }
+
+            adminBoundariesLayer = L.tileLayer(boundariesUrl, {
+                attribution: 'FAO GAUL Administrative Boundaries',
+                opacity: 0.6
+            }).addTo(map);
+        }
+
+        // Global variable for administrative boundaries layer
+        let adminBoundariesLayer = null;
 
         // Event listeners
         document.getElementById('analyzeBtn').addEventListener('click', analyzeLocation);

@@ -27,7 +27,7 @@ class LocationRequest(BaseModel):
         """Validate that requested layers are supported."""
         supported_layers = [
             "ndvi", "ndbi", "ndwi", "elevation", "slope", 
-            "landcover", "water_occurrence", "rainfall", "buildings"
+            "landcover", "water_occurrence", "rainfall", "buildings", "administrative", "vegetation"
         ]
         for layer in v:
             if layer not in supported_layers:
@@ -169,6 +169,48 @@ class RoiInfo(BaseModel):
     perimeter_meters: float
 
 
+# Administrative Boundary Models
+class AdministrativeUnit(BaseModel):
+    """Individual administrative unit information."""
+    country: str = Field(..., description="Country name")
+    state_province: str = Field(..., description="State or province name")
+    district_county: str = Field(..., description="District or county name")
+    country_code: Optional[str] = Field(None, description="Country code")
+    state_code: Optional[str] = Field(None, description="State/province code")
+    district_code: Optional[str] = Field(None, description="District/county code")
+    area_within_roi_ha: float = Field(..., description="Area within region of interest in hectares")
+
+
+class AdministrativeHierarchy(BaseModel):
+    """Administrative hierarchy for the primary location."""
+    country: str = Field(..., description="Primary country")
+    state_province: str = Field(..., description="Primary state/province")
+    district_county: str = Field(..., description="Primary district/county")
+    full_path: str = Field(..., description="Full administrative path")
+
+
+class AdministrativeSummary(BaseModel):
+    """Summary of administrative boundaries analysis."""
+    total_units: int = Field(..., description="Total administrative units found")
+    countries_count: int = Field(0, description="Number of countries")
+    states_count: int = Field(0, description="Number of states/provinces")
+    districts_count: int = Field(0, description="Number of districts/counties")
+    countries: List[str] = Field(default_factory=list, description="List of countries")
+    states_provinces: List[str] = Field(default_factory=list, description="List of states/provinces")
+    districts_counties: List[str] = Field(default_factory=list, description="List of districts/counties")
+    message: Optional[str] = Field(None, description="Status message")
+    error: Optional[str] = Field(None, description="Error message if any")
+
+
+class AdministrativeData(BaseModel):
+    """Complete administrative boundaries analysis results."""
+    administrative_summary: AdministrativeSummary
+    administrative_units: List[AdministrativeUnit] = Field(default_factory=list)
+    administrative_hierarchy: Optional[AdministrativeHierarchy] = None
+    admin_boundaries_url: Optional[str] = Field(None, description="Administrative boundaries visualization URL")
+
+
+
 class EarthEngineData(BaseModel):
     """Earth Engine analysis results."""
     summary: EarthEngineSummary
@@ -176,6 +218,8 @@ class EarthEngineData(BaseModel):
     visuals: EarthEngineVisuals
     roi: RoiInfo
     buildings: Optional[BuildingAnalysis] = Field(None, description="Building analysis results")
+    administrative: Optional[AdministrativeData] = Field(None, description="Administrative boundaries analysis")
+    vegetation: Optional[Dict[str, Any]] = Field(None, description="Comprehensive vegetation analysis results")
 
 
 class ReportSection(BaseModel):
