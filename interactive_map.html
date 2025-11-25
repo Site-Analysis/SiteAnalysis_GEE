@@ -595,9 +595,11 @@
                             <select id="layers">
                                 <option value="basic">Basic (NDVI, Elevation, Land Cover)</option>
                                 <option value="vegetation">Vegetation Analysis</option>
+                                <option value="flood">Flood Risk Analysis (NEW!)</option>
+                                <option value="hydrology">Hydrology & Water Flow (NEW!)</option>
                                 <option value="urban">Urban Planning</option>
-                                <option value="buildings">Building Analysis (NEW!)</option>
-                                <option value="administrative">Administrative Boundaries (NEW!)</option>
+                                <option value="buildings">Building Analysis</option>
+                                <option value="administrative">Administrative Boundaries</option>
                                 <option value="water">Water Resources</option>
                                 <option value="complete">Complete Analysis</option>
                             </select>
@@ -606,6 +608,10 @@
 
                     <button id="analyzeBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
                         <i class="fas fa-search"></i> Analyze Location
+                    </button>
+                    
+                    <button id="generateReportBtn" class="btn btn-success" style="width: 100%; margin-top: 0.5rem; display: none;">
+                        <i class="fas fa-file-pdf"></i> Generate PDF Report
                     </button>
                 </div>
 
@@ -791,6 +797,128 @@
                         </div>
                     </div>
 
+                    <!-- Flood Risk Analysis Section -->
+                    <div class="section" id="floodSection" style="display: none;">
+                        <h3><i class="fas fa-water"></i> Comprehensive Flood Risk Analysis</h3>
+                        
+                        <!-- Overall Risk Score -->
+                        <div class="flood-risk-summary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; color: white; margin-bottom: 20px;">
+                            <div style="text-align: center;">
+                                <h2 style="margin: 0; font-size: 48px; font-weight: bold;" id="floodRiskScore">--</h2>
+                                <p style="margin: 5px 0; font-size: 18px; opacity: 0.9;" id="floodRiskCategory">--</p>
+                                <p style="margin: 5px 0; font-size: 14px; opacity: 0.7;">Overall Flood Risk Score (0-100)</p>
+                            </div>
+                        </div>
+
+                        <!-- Risk Components -->
+                        <div class="risk-components" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                            <div class="risk-component" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #3498db;">
+                                <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px;">ELEVATION RISK</div>
+                                <div style="font-size: 24px; font-weight: bold; color: #3498db;" id="elevationRiskScore">--</div>
+                            </div>
+                            <div class="risk-component" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #2ecc71;">
+                                <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px;">HYDROLOGY RISK</div>
+                                <div style="font-size: 24px; font-weight: bold; color: #2ecc71;" id="hydrologyRiskScore">--</div>
+                            </div>
+                            <div class="risk-component" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #e74c3c;">
+                                <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px;">HISTORICAL RISK</div>
+                                <div style="font-size: 24px; font-weight: bold; color: #e74c3c;" id="historicalRiskScore">--</div>
+                            </div>
+                            <div class="risk-component" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #f39c12;">
+                                <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px;">LLAI RISK</div>
+                                <div style="font-size: 24px; font-weight: bold; color: #f39c12;" id="llaiRiskScore">--</div>
+                            </div>
+                        </div>
+
+                        <!-- Elevation Metrics -->
+                        <div class="elevation-metrics">
+                            <h4><i class="fas fa-mountain"></i> Elevation & Terrain Analysis</h4>
+                            <div class="stat-row">
+                                <span class="stat-label">Mean Elevation:</span>
+                                <span class="stat-value" id="meanElevation">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Min/Max Elevation:</span>
+                                <span class="stat-value" id="elevationRange">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Mean Slope:</span>
+                                <span class="stat-value" id="meanSlope">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Terrain Type:</span>
+                                <span class="stat-value" id="terrainType">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Low-Lying Areas:</span>
+                                <span class="stat-value" id="lowLyingPercent">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Hydrology Metrics -->
+                        <div class="hydrology-metrics">
+                            <h4><i class="fas fa-tint"></i> Hydrological Analysis</h4>
+                            <div class="stat-row">
+                                <span class="stat-label">Flow Accumulation:</span>
+                                <span class="stat-value" id="flowAccumulation">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Nearest River:</span>
+                                <span class="stat-value" id="riverDistance">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Water Occurrence:</span>
+                                <span class="stat-value" id="waterOccurrence">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Drainage Density:</span>
+                                <span class="stat-value" id="drainageDensity">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Flood History -->
+                        <div class="flood-history">
+                            <h4><i class="fas fa-history"></i> Historical Flood Data</h4>
+                            <div class="stat-row">
+                                <span class="stat-label">Historical Events:</span>
+                                <span class="stat-value" id="floodEvents">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Water Recurrence:</span>
+                                <span class="stat-value" id="waterRecurrence">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Rainfall (30yr avg):</span>
+                                <span class="stat-value" id="annualRainfall">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Max Rainfall Event:</span>
+                                <span class="stat-value" id="maxRainfall">--</span>
+                            </div>
+                        </div>
+
+                        <!-- LLAI Metrics -->
+                        <div class="llai-metrics">
+                            <h4><i class="fas fa-chart-area"></i> Low-Lying Area Index (LLAI)</h4>
+                            <div class="stat-row">
+                                <span class="stat-label">LLAI Score:</span>
+                                <span class="stat-value" id="llaiScore">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Primary Category:</span>
+                                <span class="stat-value" id="llaiCategory">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Recommendations -->
+                        <div class="flood-recommendations" style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-top: 20px;">
+                            <h4 style="margin-top: 0;"><i class="fas fa-exclamation-triangle"></i> Recommendations</h4>
+                            <ul id="floodRecommendations" style="margin: 0; padding-left: 20px;">
+                                <!-- Recommendations will be inserted here -->
+                            </ul>
+                        </div>
+                    </div>
+
                     <!-- Earth Engine Visualizations -->
                     <div class="section">
                         <h3><i class="fas fa-satellite-dish"></i> Satellite Imagery</h3>
@@ -808,6 +936,10 @@
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
     <script>
+        // TEST: Check if JavaScript is running
+        console.log('🚀 JavaScript loaded successfully!');
+        alert('JavaScript is working! Check console for logs.');
+        
         // Global variables
         let map;
         let currentMarker;
@@ -817,6 +949,7 @@
 
         // Initialize map
         function initMap() {
+            console.log('🗺️ Initializing map...');
             // Create map centered on India
             map = L.map('map').setView([20.5937, 78.9629], 5);
 
@@ -965,17 +1098,22 @@
             }).addTo(map);
         }
 
+        // API Configuration - IMPORTANT: Backend runs on port 8000, Frontend on port 8001
+        const API_BASE_URL = 'http://localhost:8000';
+
         // Get layer configuration
         function getLayerConfig() {
             const layerType = document.getElementById('layers').value;
             const configs = {
                 'basic': ['ndvi', 'elevation', 'landcover'],
                 'vegetation': ['ndvi', 'ndwi', 'elevation', 'landcover', 'vegetation'],
+                'flood': ['ndvi', 'elevation', 'slope', 'landcover', 'flood', 'hydrology', 'flood_risk', 'llai'],
+                'hydrology': ['elevation', 'slope', 'water_occurrence', 'hydrology'],
                 'urban': ['ndvi', 'ndbi', 'elevation', 'slope', 'landcover'],
                 'buildings': ['ndvi', 'elevation', 'landcover', 'buildings'],
                 'administrative': ['ndvi', 'elevation', 'landcover', 'administrative'],
                 'water': ['ndvi', 'ndwi', 'water_occurrence', 'elevation'],
-                'complete': ['ndvi', 'ndbi', 'ndwi', 'elevation', 'slope', 'landcover', 'water_occurrence', 'rainfall', 'buildings', 'administrative', 'vegetation']
+                'complete': ['ndvi', 'ndbi', 'ndwi', 'elevation', 'slope', 'landcover', 'water_occurrence', 'rainfall', 'buildings', 'administrative', 'vegetation', 'flood', 'hydrology', 'flood_risk', 'llai']
             };
             return configs[layerType] || configs['basic'];
         }
@@ -1049,7 +1187,7 @@
 
             try {
                 // Choose endpoint based on request type
-                const endpoint = requestBody.geometry ? 'http://localhost:8001/analyze-polygon' : 'http://localhost:8001/analyze-location';
+                const endpoint = requestBody.geometry ? `${API_BASE_URL}/analyze-polygon` : `${API_BASE_URL}/analyze-location`;
                 
                 const response = await fetch(endpoint, {
                     method: 'POST',
@@ -1080,7 +1218,7 @@
             } catch (error) {
                 console.error('Analysis error:', error);
                 if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                    showError('Cannot connect to API server. Make sure the server is running on localhost:8001');
+                    showError('Cannot connect to API server. Make sure the backend server is running on localhost:8000');
                 } else {
                     showError(`Analysis failed: ${error.message}`);
                 }
@@ -1159,6 +1297,18 @@
                 document.getElementById('vegetationSection').style.display = 'none';
             }
 
+            // Update flood analysis (if available)
+            console.log('Checking flood analysis...');
+            const floodData = data.earth_engine.flood_analysis;
+            if (floodData) {
+                console.log('✅ Flood data found, calling displayFloodAnalysis');
+                displayFloodAnalysis(floodData, visuals);
+                document.getElementById('floodSection').style.display = 'block';
+            } else {
+                console.log('❌ No flood data found, hiding section');
+                document.getElementById('floodSection').style.display = 'none';
+            }
+
             // Update visualizations
             updateVisualizations(visuals);
 
@@ -1166,6 +1316,17 @@
             if (currentMarker) {
                 const popupContent = createPopupContent(summary, landcover, buildings, administrative);
                 currentMarker.bindPopup(popupContent).openPopup();
+            }
+
+            // Store analysis data for PDF generation
+            try {
+                if (data && data.earth_engine) {
+                    storeAnalysisData(data.earth_engine);
+                } else {
+                    console.warn('⚠️ No earth_engine data to store for PDF generation');
+                }
+            } catch (error) {
+                console.error('❌ Error storing analysis data:', error);
             }
 
             // Show results
@@ -1561,6 +1722,123 @@
             }
         }
 
+        function displayFloodAnalysis(floodData, visuals) {
+            console.log('🌊 Displaying flood risk analysis:', floodData);
+            
+            // Update overall risk score with null safety
+            const riskScore = floodData?.risk_score || {};
+            document.getElementById('floodRiskScore').textContent = (riskScore.overall_score || 0).toFixed(1);
+            document.getElementById('floodRiskCategory').textContent = riskScore.risk_category || 'Unknown';
+            
+            // Update risk component scores with null safety
+            document.getElementById('elevationRiskScore').textContent = (riskScore.elevation_risk || 0).toFixed(1);
+            document.getElementById('hydrologyRiskScore').textContent = (riskScore.hydrology_risk || 0).toFixed(1);
+            document.getElementById('historicalRiskScore').textContent = (riskScore.historical_risk || 0).toFixed(1);
+            document.getElementById('llaiRiskScore').textContent = (riskScore.llai_risk || 0).toFixed(1);
+            
+            // Update overall risk summary background color
+            const riskSummary = document.querySelector('.flood-risk-summary');
+            if (riskSummary) {
+                const colors = {
+                    'Very Low': 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    'Low': 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    'Moderate': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    'High': 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    'Very High': 'linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%)'
+                };
+                riskSummary.style.background = colors[riskScore.risk_category] || colors['Moderate'];
+            }
+            
+            // Update elevation metrics with null safety
+            const elevation = floodData?.elevation || {};
+            document.getElementById('meanElevation').textContent = `${(elevation.mean_elevation_m || 0).toFixed(1)}m`;
+            document.getElementById('elevationRange').textContent = `${(elevation.min_elevation_m || 0).toFixed(1)}m - ${(elevation.max_elevation_m || 0).toFixed(1)}m`;
+            document.getElementById('meanSlope').textContent = `${(elevation.mean_slope_degrees || 0).toFixed(1)}°`;
+            document.getElementById('terrainType').textContent = elevation.terrain_classification || 'Unknown';
+            document.getElementById('lowLyingPercent').textContent = `${(elevation.low_lying_area_percentage || 0).toFixed(1)}%`;
+            
+            // Update hydrology metrics with null safety
+            const hydrology = floodData?.hydrology || {};
+            document.getElementById('flowAccumulation').textContent = (hydrology.mean_flow_accumulation || 0).toFixed(0);
+            document.getElementById('riverDistance').textContent = `${((hydrology.nearest_river_distance_m || 0) / 1000).toFixed(2)}km (${hydrology.river_proximity_risk || 'Unknown'})`;
+            document.getElementById('waterOccurrence').textContent = `${(hydrology.water_occurrence_percentage || 0).toFixed(1)}%`;
+            document.getElementById('drainageDensity').textContent = hydrology.drainage_density || 'Unknown';
+            
+            // Update flood history with null safety
+            const history = floodData?.flood_history || {};
+            document.getElementById('floodEvents').textContent = history.historical_flood_events || 0;
+            document.getElementById('waterRecurrence').textContent = `${(history.water_recurrence_months || 0).toFixed(1)}%`;
+            document.getElementById('annualRainfall').textContent = `${(history.annual_rainfall_mm || 0).toFixed(0)}mm`;
+            document.getElementById('maxRainfall').textContent = `${(history.max_daily_rainfall_mm || 0).toFixed(0)}mm`;
+            
+            // Update LLAI metrics with null safety
+            const llai = floodData?.llai || {};
+            document.getElementById('llaiScore').textContent = (llai.llai_mean || 0).toFixed(2);
+            document.getElementById('llaiCategory').textContent = llai.primary_risk_category || 'Unknown';
+            
+            // Display flood visualizations
+            displayFloodVisualizations(floodData, visuals);
+            
+            // Display recommendations
+            if (floodData.recommendations && Array.isArray(floodData.recommendations)) {
+                const recList = document.getElementById('floodRecommendations');
+                recList.innerHTML = '';
+                floodData.recommendations.forEach(rec => {
+                    const li = document.createElement('li');
+                    li.textContent = rec;
+                    recList.appendChild(li);
+                });
+            }
+        }
+
+        function displayFloodVisualizations(floodData, visuals) {
+            const container = document.getElementById('floodVisualizations');
+            container.innerHTML = '';
+            
+            console.log('🗺️ Displaying flood visualizations, visuals object:', visuals);
+            console.log('🗺️ Available visual keys:', Object.keys(visuals || {}));
+            
+            // Flood visualization URLs
+            const floodVisuals = [
+                { key: 'elevation_heatmap', title: 'Elevation Heatmap', description: `DEM from ${floodData?.elevation?.dem_source || 'MERIT'}` },
+                { key: 'slope_map', title: 'Slope Analysis', description: 'Terrain slope gradient for flood risk' },
+                { key: 'flow_accumulation', title: 'Flow Accumulation', description: 'Water flow pathways from MERIT Hydro' },
+                { key: 'water_occurrence', title: 'Water Occurrence', description: 'Historical surface water from JRC GSW' }
+            ];
+            
+            let validVisualizationsCount = 0;
+            
+            floodVisuals.forEach(visual => {
+                const url = visuals ? visuals[visual.key] : null;
+                console.log(`🗺️ Checking ${visual.key}: ${url ? 'Found (' + url.substring(0, 50) + '...)' : 'Not found'}`);
+                
+                if (url && url.length > 10) {
+                    validVisualizationsCount++;
+                    const visualTile = document.createElement('div');
+                    visualTile.className = 'visual-tile';
+                    visualTile.innerHTML = `
+                        <h4>${visual.title}</h4>
+                        <p>${visual.description}</p>
+                        <img src="${url}" alt="${visual.title}" style="width: 100%; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onerror="this.parentElement.innerHTML='<p>❌ Failed to load visualization</p>'">
+                    `;
+                    container.appendChild(visualTile);
+                } else {
+                    console.log(`⚠️ Skipping ${visual.key} - no valid URL`);
+                }
+            });
+            
+            if (validVisualizationsCount === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #6b7280; font-style: italic; padding: 1rem;">
+                        <p>🌊 Flood Risk Analysis Complete!</p>
+                        <p><em>Map visualizations are being processed...</em></p>
+                    </div>
+                `;
+            } else {
+                console.log(`✅ Displayed ${validVisualizationsCount} flood visualizations`);
+            }
+        }
+
         function addAdministrativeBoundariesLayer(boundariesUrl) {
             // Add administrative boundaries overlay to map
             if (adminBoundariesLayer) {
@@ -1590,7 +1868,436 @@
         // Initialize map when page loads
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
+            
+            // Add event listener for generate report button
+            const generateBtn = document.getElementById('generateReportBtn');
+            if (generateBtn) {
+                console.log('✅ Generate Report button found, adding event listener');
+                generateBtn.addEventListener('click', generatePDFReport);
+            } else {
+                console.error('❌ Generate Report button not found in DOM');
+            }
+        });
+
+        // PDF Report Generation Functionality
+        let currentAnalysisData = null;
+
+        // Store analysis data when analysis completes
+        function storeAnalysisData(earthEngineData) {
+            console.log('📊 Raw earth_engine data received:', earthEngineData);
+            
+            // Safely get coordinate values
+            const latInput = document.getElementById('latitude');
+            const lonInput = document.getElementById('longitude');
+            const bufferInput = document.getElementById('buffer');
+            
+            // Extract data from earth_engine structure
+            const summary = earthEngineData.summary || {};
+            const roi = earthEngineData.roi || {};
+            const vegetation = earthEngineData.vegetation || null;
+            const buildings = earthEngineData.buildings || null;
+            const administrative = earthEngineData.administrative || null;
+            const floodAnalysis = earthEngineData.flood_analysis || null;
+            
+            console.log('📊 Extracted data:', { vegetation, buildings, administrative, floodAnalysis });
+            
+            currentAnalysisData = {
+                latitude: latInput ? parseFloat(latInput.value) : roi.center_lat || 0,
+                longitude: lonInput ? parseFloat(lonInput.value) : roi.center_lon || 0,
+                buffer_meters: bufferInput ? parseInt(bufferInput.value) : roi.buffer_meters || 750,
+                area_km2: roi.area_hectares ? (roi.area_hectares / 100).toFixed(2) : 'N/A',
+                analysis_date: new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }),
+                // Add polygon if it exists
+                polygon: window.currentPolygon || null
+            };
+            
+            // Add vegetation data if available
+            if (vegetation && typeof vegetation === 'object') {
+                console.log('🌱 Processing vegetation data:', vegetation);
+                currentAnalysisData.vegetation = {
+                    metrics: {
+                        mean_ndvi: vegetation.viirs_ndvi_mean || vegetation.ndvi_mean || summary.ndvi_mean || 0,
+                        mean_evi: vegetation.viirs_evi_mean || vegetation.evi_mean || 0,
+                        mean_savi: vegetation.savi_mean || 0,
+                        vegetation_health_index: vegetation.vegetation_health_mean || vegetation.health_index || 0,
+                        data_source: vegetation.data_source || 'Combined Sentinel-2 and MODIS analysis',
+                        analysis_date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                    },
+                    distribution: vegetation.vegetation_distribution || vegetation.distribution || {
+                        non_vegetated: 0,
+                        low_vegetation: 0,
+                        moderate_vegetation: 0,
+                        dense_vegetation: 0
+                    },
+                    visualization_urls: vegetation.visualization_urls || {}
+                };
+            }
+            
+            // Add buildings data if available
+            if (buildings && typeof buildings === 'object') {
+                console.log('🏢 Processing buildings data:', buildings);
+                currentAnalysisData.buildings = {
+                    metrics: {
+                        building_count: buildings.building_count || buildings.count || 0,
+                        total_area_km2: buildings.total_area_km2 || buildings.area_km2 || 0,
+                        average_area_m2: buildings.average_area_m2 || buildings.avg_area || 0,
+                        density_per_km2: buildings.density_per_km2 || buildings.density || 0,
+                        coverage_percentage: buildings.coverage_percentage || buildings.coverage || 0
+                    },
+                    visualization_url: buildings.visualization_url || buildings.map_url
+                };
+            }
+            
+            // Add administrative data if available
+            if (administrative && typeof administrative === 'object') {
+                console.log('🏛️ Processing administrative data:', administrative);
+                currentAnalysisData.administrative = {
+                    country: administrative.country || administrative.adm0_name || 'Unknown',
+                    country_code: administrative.country_code || administrative.adm0_code || 'N/A',
+                    state: administrative.state || administrative.adm1_name || 'Unknown',
+                    state_code: administrative.state_code || administrative.adm1_code || 'N/A',
+                    district: administrative.district || administrative.adm2_name || 'Unknown',
+                    district_code: administrative.district_code || administrative.adm2_code || 'N/A',
+                    area_km2: administrative.area_km2 || administrative.area || 0,
+                    visualization_url: administrative.visualization_url || administrative.map_url
+                };
+            }
+            
+            // Add flood analysis data if available
+            if (floodAnalysis && typeof floodAnalysis === 'object') {
+                console.log('🌊 Processing flood analysis data:', floodAnalysis);
+                currentAnalysisData.flood = {
+                    risk_score: floodAnalysis.risk_score || {},
+                    elevation: floodAnalysis.elevation || {},
+                    hydrology: floodAnalysis.hydrology || {},
+                    flood_history: floodAnalysis.flood_history || {},
+                    llai: floodAnalysis.llai || {},
+                    recommendations: floodAnalysis.recommendations || []
+                };
+            }
+            
+            // Include summary data
+            currentAnalysisData.summary = summary;
+            
+            console.log('✅ Final analysis data stored for PDF generation:', currentAnalysisData);
+            
+            // Show the generate report button
+            const reportBtn = document.getElementById('generateReportBtn');
+            console.log('🔍 Looking for generate report button:', !!reportBtn);
+            if (reportBtn) {
+                console.log('✅ Showing generate report button');
+                reportBtn.style.display = 'block';
+            } else {
+                console.error('❌ Generate report button not found!');
+            }
+        }
+
+        // Generate PDF Report
+        async function generatePDFReport() {
+            console.log('🔴 PDF Report button clicked!');
+            console.log('🔴 Current analysis data exists:', !!currentAnalysisData);
+            
+            if (!currentAnalysisData) {
+                console.error('❌ No analysis data available');
+                alert('Please run an analysis first before generating a report.');
+                return;
+            }
+
+            const reportBtn = document.getElementById('generateReportBtn');
+            console.log('🔴 Report button found:', !!reportBtn);
+            const originalText = reportBtn.innerHTML;
+            
+            try {
+                // Show loading state
+                reportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Report...';
+                reportBtn.disabled = true;
+
+                console.log('📤 Sending data to PDF generator:', currentAnalysisData);
+                console.log('📤 Vegetation data being sent:', currentAnalysisData.vegetation);
+                console.log('📤 Buildings data being sent:', currentAnalysisData.buildings);
+                console.log('📤 Administrative data being sent:', currentAnalysisData.administrative);
+
+                // Make API call to generate PDF
+                const response = await fetch(`${API_BASE_URL}/generate-report`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(currentAnalysisData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Get the PDF as a blob
+                const blob = await response.blob();
+                
+                // Create object URL for preview
+                const url = window.URL.createObjectURL(blob);
+                
+                // Show PDF preview modal
+                showPDFPreview(url, blob);
+
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Failed to generate PDF report. Please try again.');
+            } finally {
+                // Restore button state
+                reportBtn.innerHTML = originalText;
+                reportBtn.disabled = false;
+            }
+        }
+
+        // Show PDF Preview Modal
+        function showPDFPreview(url, blob) {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('pdfPreviewModal');
+            
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'pdfPreviewModal';
+                modal.className = 'pdf-modal';
+                modal.innerHTML = `
+                    <div class="pdf-modal-content">
+                        <div class="pdf-modal-header">
+                            <h2><i class="fas fa-file-pdf"></i> Analysis Report Preview</h2>
+                            <button class="pdf-close-btn" onclick="closePDFPreview()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="pdf-modal-body">
+                            <iframe id="pdfPreviewFrame" style="width: 100%; height: 600px; border: none;"></iframe>
+                        </div>
+                        <div class="pdf-modal-footer">
+                            <button class="btn btn-secondary" onclick="closePDFPreview()">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                            <button class="btn btn-success" onclick="downloadCurrentPDF()">
+                                <i class="fas fa-download"></i> Download PDF
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            // Set the PDF in the iframe
+            document.getElementById('pdfPreviewFrame').src = url;
+            
+            // Store blob for download
+            window.currentPDFBlob = blob;
+            window.currentPDFUrl = url;
+            
+            // Show modal
+            modal.style.display = 'flex';
+        }
+
+        // Close PDF Preview Modal
+        function closePDFPreview() {
+            const modal = document.getElementById('pdfPreviewModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            
+            // Clean up object URL
+            if (window.currentPDFUrl) {
+                window.URL.revokeObjectURL(window.currentPDFUrl);
+            }
+        }
+
+        // Download Current PDF
+        function downloadCurrentPDF() {
+            if (!window.currentPDFBlob) {
+                alert('No PDF available to download');
+                return;
+            }
+
+            // Create download link
+            const url = window.URL.createObjectURL(window.currentPDFBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Generate filename
+            const lat = currentAnalysisData?.latitude || 'unknown';
+            const lon = currentAnalysisData?.longitude || 'unknown';
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            a.download = `GEE_Analysis_Report_${lat}_${lon}_${timestamp}.pdf`;
+            
+            // Trigger download
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Clean up
+            window.URL.revokeObjectURL(url);
+            
+            // Show success message
+            alert('PDF report downloaded successfully!');
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('pdfPreviewModal');
+            if (event.target === modal) {
+                closePDFPreview();
+            }
         });
     </script>
+
+    <!-- PDF Modal Styles -->
+    <style>
+        .pdf-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s;
+        }
+
+        .pdf-modal-content {
+            background-color: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s;
+        }
+
+        .pdf-modal-header {
+            padding: 1.5rem;
+            border-bottom: 2px solid #3498DB;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .pdf-modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pdf-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .pdf-close-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+
+        .pdf-modal-body {
+            padding: 1.5rem;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .pdf-modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27AE60 0%, #229954 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        #generateReportBtn {
+            background: linear-gradient(135deg, #27AE60 0%, #229954 100%);
+            border: none;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        #generateReportBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+        }
+
+        #generateReportBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    </style>
 </body>
 </html>

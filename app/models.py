@@ -27,7 +27,8 @@ class LocationRequest(BaseModel):
         """Validate that requested layers are supported."""
         supported_layers = [
             "ndvi", "ndbi", "ndwi", "elevation", "slope", 
-            "landcover", "water_occurrence", "rainfall", "buildings", "administrative", "vegetation"
+            "landcover", "water_occurrence", "rainfall", "buildings", "administrative", "vegetation",
+            "flood", "hydrology", "flood_risk", "llai"
         ]
         for layer in v:
             if layer not in supported_layers:
@@ -220,6 +221,81 @@ class EarthEngineData(BaseModel):
     buildings: Optional[BuildingAnalysis] = Field(None, description="Building analysis results")
     administrative: Optional[AdministrativeData] = Field(None, description="Administrative boundaries analysis")
     vegetation: Optional[Dict[str, Any]] = Field(None, description="Comprehensive vegetation analysis results")
+    flood_analysis: Optional[Dict[str, Any]] = Field(None, description="Comprehensive flood and hydrology analysis")
+
+
+class FloodRiskScore(BaseModel):
+    """Flood risk scoring model."""
+    overall_score: float = Field(..., ge=0, le=100, description="Overall flood risk score (0-100)")
+    risk_category: str = Field(..., description="Risk category: Very Low, Low, Moderate, High, Very High")
+    risk_color: str = Field(..., description="Color code for risk visualization")
+    elevation_risk: float = Field(..., description="Elevation component score")
+    hydrology_risk: float = Field(..., description="Hydrology component score")
+    historical_risk: float = Field(..., description="Historical flood component score")
+    llai_risk: float = Field(..., description="Low-Lying Area Index component score")
+
+
+class ElevationAnalysis(BaseModel):
+    """Elevation and terrain analysis model."""
+    mean_elevation_m: float = Field(..., description="Mean elevation in meters")
+    min_elevation_m: float = Field(..., description="Minimum elevation in meters")
+    max_elevation_m: float = Field(..., description="Maximum elevation in meters")
+    elevation_range_m: float = Field(..., description="Elevation range in meters")
+    elevation_std_dev: float = Field(..., description="Standard deviation of elevation")
+    mean_slope_degrees: float = Field(..., description="Mean slope in degrees")
+    max_slope_degrees: float = Field(..., description="Maximum slope in degrees")
+    low_lying_area_percentage: float = Field(..., description="Percentage of low-lying area")
+    terrain_classification: str = Field(..., description="Terrain type classification")
+    data_source: str = Field(..., description="DEM data source used")
+
+
+class HydrologyAnalysis(BaseModel):
+    """Hydrology and drainage analysis model."""
+    mean_flow_accumulation: float = Field(..., description="Mean flow accumulation value")
+    max_flow_accumulation: float = Field(..., description="Maximum flow accumulation")
+    high_flow_area_percentage: float = Field(..., description="Percentage with high flow accumulation")
+    nearest_river_distance_m: float = Field(..., description="Distance to nearest river in meters")
+    water_occurrence_percentage: float = Field(..., description="Historical water occurrence percentage")
+    max_water_occurrence: float = Field(..., description="Maximum water occurrence")
+    drainage_density: str = Field(..., description="Drainage density classification")
+    river_proximity_risk: str = Field(..., description="Flood risk from river proximity")
+    data_source: str = Field(..., description="Hydrology data sources")
+
+
+class FloodHistory(BaseModel):
+    """Historical flood analysis model."""
+    historical_flood_events: int = Field(..., description="Number of recorded flood events")
+    flooded_area_indicator: float = Field(..., description="Historical flooding indicator")
+    water_recurrence_months: float = Field(..., description="Mean water recurrence in months")
+    max_water_recurrence: float = Field(..., description="Maximum water recurrence")
+    annual_rainfall_mm: float = Field(..., description="Annual rainfall in mm")
+    max_daily_rainfall_mm: float = Field(..., description="Maximum daily rainfall in mm")
+    mean_daily_rainfall_mm: float = Field(..., description="Mean daily rainfall in mm")
+    flood_risk_category: str = Field(..., description="Historical flood risk category")
+    flood_risk_score: float = Field(..., description="Historical flood risk score")
+    data_source: str = Field(..., description="Flood history data sources")
+
+
+class LowLyingAreaIndex(BaseModel):
+    """Low-Lying Area Index (LLAI) model."""
+    llai_mean: float = Field(..., description="Mean LLAI value (0-1)")
+    llai_min: float = Field(..., description="Minimum LLAI value")
+    llai_max: float = Field(..., description="Maximum LLAI value")
+    llai_std_dev: float = Field(..., description="LLAI standard deviation")
+    risk_distribution: Dict[str, float] = Field(..., description="Distribution across risk categories")
+    primary_risk_category: str = Field(..., description="Primary risk category")
+    data_source: str = Field(..., description="LLAI data sources")
+
+
+class FloodAnalysis(BaseModel):
+    """Comprehensive flood analysis model."""
+    risk_score: FloodRiskScore = Field(..., description="Overall flood risk assessment")
+    elevation: ElevationAnalysis = Field(..., description="Elevation and terrain analysis")
+    hydrology: HydrologyAnalysis = Field(..., description="Hydrology and drainage analysis")
+    flood_history: FloodHistory = Field(..., description="Historical flood analysis")
+    llai: LowLyingAreaIndex = Field(..., description="Low-Lying Area Index analysis")
+    recommendations: List[str] = Field(..., description="Flood mitigation recommendations")
+    visualization_urls: Optional[Dict[str, str]] = Field(None, description="Visualization map URLs")
 
 
 class ReportSection(BaseModel):

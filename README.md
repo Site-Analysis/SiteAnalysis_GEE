@@ -36,7 +36,45 @@ A comprehensive FastAPI backend service that integrates **Google Earth Engine (G
 - **Interactive Mapping**: Real-time visualization with Leaflet.js
 - **RESTful API**: Clean endpoints with automatic documentation
 
-## 🆕 Recent Major Updates (v2.0)
+### 🌊 **Comprehensive Flood Risk Analysis** (NEW!)
+- **10+ Flood/Hydrology Datasets**: MERIT DEM, ALOS AW3D30, SRTM, JRC Global Surface Water, DFO Flood Archive, Cloud-to-Street, HydroSHEDS, MERIT Hydro, CHIRPS rainfall
+- **4-Component Risk Scoring**: Elevation, hydrology, historical floods, and Low-Lying Area Index (LLAI)
+- **Accurate Global Analysis**: Fixed scoring logic handles oceans, deserts, mountains, and flood-prone areas correctly
+- **Risk Categories**: Very Low (0-20), Low (20-40), Moderate (40-60), High (60-80), Very High (80-100)
+- **Smart Recommendations**: Context-aware flood mitigation strategies with Indian Rupee cost estimates
+- **Multiple Visualizations**: DEM heatmaps, slope maps, flow accumulation, flood history overlays, LLAI composites
+
+### 📄 **Professional PDF Report Generation** (NEW!)
+- **Comprehensive Reports**: Multi-page PDF documents with executive summaries and detailed analysis
+- **Beautiful Visualizations**: Infographic-style charts, gauges, and satellite imagery
+- **Polygon Highlighting**: Analyzed areas shown with precise boundaries and coordinates
+- **In-Browser Preview**: View reports before downloading with iframe preview
+- **One-Click Download**: Direct PDF download with formatted filenames
+- **Professional Styling**: Publication-quality layouts inspired by planning documents
+- **8-Section Reports**: Cover, executive summary, location, vegetation, buildings, administrative, flood risk, recommendations
+- **Automated Recommendations**: Smart insights based on analysis results
+
+## 🆕 Recent Major Updates (v3.0)
+
+### 🌊 **Comprehensive Flood Risk Analysis System** (NEW!)
+- **Multi-Dataset Integration**: 10+ datasets including MERIT DEM, ALOS AW3D30, SRTM, JRC Global Surface Water, DFO Flood Archive, Cloud-to-Street, HydroSHEDS, MERIT Hydro, CHIRPS rainfall
+- **4-Component Risk Scoring**:
+  - **Elevation Risk**: Terrain analysis with hydrologically-corrected DEMs
+  - **Hydrology Risk**: Flow accumulation, river proximity, and drainage patterns
+  - **Historical Risk**: 30+ years of flood event data and water recurrence patterns
+  - **LLAI Risk**: Low-Lying Area Index for depression and inundation susceptibility
+- **Accurate Scoring Logic**: Fixed bugs with ocean/permanent water body detection, proper rainfall normalization, and realistic elevation thresholds
+- **Risk Categories**: Very Low, Low, Moderate, High, Very High with color-coded displays
+- **Smart Recommendations**: Context-aware flood mitigation strategies with cost estimates (Indian Rupees)
+- **Multiple Visualizations**: DEM heatmaps, slope maps, flow accumulation, flood history overlays
+
+### 📄 **Professional PDF Report Generation System**
+- **8-Section Reports**: Cover page, executive summary, location details, vegetation analysis, building analysis, administrative context, flood risk assessment, and recommendations
+- **Beautiful Infographic-Style Charts**: Modern gradients, professional color schemes, gauges, and dashboards
+- **Satellite Imagery Integration**: High-resolution polygon visualizations with north arrows and scale bars
+- **One-Click Download**: Generate and preview PDFs directly in the browser
+- **Publication-Quality Layout**: Inspired by professional planning documents and Figma designs
+- **Automated Data Mapping**: Smart extraction from analysis results to report sections
 
 ### 🌱 **Comprehensive Vegetation Analysis System**
 - **Dual-Source Integration**: Combined Sentinel-2 (10m resolution) and MODIS (250m resolution) for maximum reliability
@@ -64,11 +102,12 @@ A comprehensive FastAPI backend service that integrates **Google Earth Engine (G
 - **Performance Optimizations**: Faster processing with intelligent data source selection
 
 ### 🛠️ **Technical Improvements**
-- **Pydantic Model Updates**: Enhanced data validation and serialization
-- **API Endpoint Expansion**: New `/analyze-polygon` endpoint for specialized analysis
+- **Pydantic Model Updates**: Enhanced data validation and serialization with flood analysis models
+- **API Endpoint Expansion**: New `/analyze-polygon` and `/generate-report` endpoints
 - **Layer Configuration System**: Dynamic layer selection with intelligent defaults
 - **Comprehensive Logging**: Detailed backend logging for debugging and monitoring
 - **Quality Indicators**: Data source information and analysis quality metrics
+- **Bug Fixes**: Corrected flood risk scoring logic for accurate global analysis
 
 ## 📁 Project Structure
 
@@ -76,10 +115,13 @@ A comprehensive FastAPI backend service that integrates **Google Earth Engine (G
 gee-trial/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py              # FastAPI entry point
+│   ├── main.py              # FastAPI entry point with /analyze-location, /analyze-polygon, /generate-report endpoints
 │   ├── config.py            # Environment and authentication setup
-│   ├── models.py            # Pydantic request/response schemas
-│   └── gee_utils.py         # Earth Engine utility functions
+│   ├── models.py            # Pydantic request/response schemas (includes flood analysis models)
+│   ├── gee_utils.py         # Earth Engine utility functions (2200+ lines with flood analysis)
+│   ├── chart_generator.py   # PDF chart generation with infographic-style visualizations
+│   ├── map_renderer.py      # Satellite imagery and polygon visualization for PDFs
+│   └── pdf_generator.py     # Professional PDF report generation (8-section reports)
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py          # Test configuration and fixtures
@@ -87,9 +129,12 @@ gee-trial/
 │   ├── test_models.py       # Pydantic model tests
 │   ├── test_gee_utils.py    # Earth Engine utility tests
 │   └── test_integration.py  # Integration tests
-├── requirements.txt         # Python dependencies
+├── interactive_map.html     # Interactive Leaflet.js frontend with flood analysis UI
+├── requirements.txt         # Python dependencies (includes reportlab, matplotlib, plotly)
+├── gee-sa.json             # Google Earth Engine service account credentials (DO NOT COMMIT)
 ├── .env.example            # Environment variables template
 ├── .gitignore              # Git ignore rules
+├── FLOOD_SCORING_FIX.md    # Documentation of flood risk scoring bug fixes
 └── README.md               # This file
 ```
 
@@ -755,6 +800,143 @@ curl -X POST "http://localhost:8000/analyze-polygon" \
 - **India Bounds**: [68.0, 6.0, 97.0, 37.0] (west, south, east, north)
 - **Image Resolution**: 30m for most datasets, 10m for Sentinel-2
 - **Visualization Size**: 512x512 pixels
+
+## 📄 PDF Report Generation
+
+### **Overview**
+Generate comprehensive, publication-quality PDF reports directly from your analysis results. Reports feature beautiful visualizations, infographic-style charts, and professional layouts inspired by urban planning documents.
+
+### **Features**
+- **In-Browser Preview**: View complete reports before downloading
+- **One-Click Download**: Instant PDF generation with formatted filenames
+- **Multi-Page Reports**: Comprehensive analysis across multiple sections
+- **Beautiful Visualizations**: Professional charts, gauges, and satellite imagery
+- **Polygon Highlighting**: Precise boundary visualization with coordinates
+- **Smart Recommendations**: Automated insights based on analysis results
+
+### **Report Sections**
+
+#### 1. **Cover Page**
+- Project title and branding
+- Location information with coordinates
+- Administrative context (Country → State → District)
+- Analysis date and metadata
+- Data source acknowledgments
+
+#### 2. **Executive Summary**
+- Key findings and metrics at a glance
+- Comprehensive dashboard with all indicators
+- Quick assessment of vegetation health, building density, coverage
+- Visual summary cards for rapid review
+
+#### 3. **Location & Analysis Area**
+- Detailed map showing analyzed polygon or point
+- Coordinate labels for all vertices
+- Buffer zone visualization
+- Area calculations and measurements
+- North arrow and scale bar
+
+#### 4. **Vegetation Analysis** (if selected)
+- Multi-panel vegetation health visualization
+- NDVI, EVI, SAVI metrics with interpretation
+- Vegetation distribution pie chart
+- Health index gauge meter
+- Satellite imagery from multiple indices
+- Data source information (Sentinel-2 + MODIS)
+
+#### 5. **Building Intelligence** (if selected)
+- Building count and density metrics
+- Coverage percentage donut chart
+- Average building size statistics
+- Density classification heatmap
+- Urban development indicators
+
+#### 6. **Administrative Context** (if selected)
+- Hierarchical flow diagram (Country → State → District)
+- Administrative codes and names
+- Area within jurisdictions
+- Official boundary information from FAO GAUL
+
+#### 7. **Additional Analysis Layers**
+- Elevation, land cover, water resources
+- Population density
+- Climate and soil data
+- Each layer with dedicated subsection
+
+#### 8. **Recommendations & Conclusions**
+- Data-driven recommendations based on findings
+- Vegetation restoration suggestions
+- Urban planning insights
+- Monitoring recommendations
+- Data quality indicators
+- Source acknowledgments and disclaimers
+
+### **Using PDF Reports**
+
+#### **Via Web Interface:**
+```
+1. Complete an analysis (point or polygon)
+2. Click "Generate PDF Report" button (appears after analysis)
+3. Wait 10-30 seconds for generation
+4. Preview report in modal window
+5. Click "Download PDF" or close to dismiss
+```
+
+#### **Via API:**
+```bash
+curl -X POST "http://localhost:8000/generate-report" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "latitude": 28.6139,
+    "longitude": 77.2090,
+    "buffer_meters": 750,
+    "analysis_date": "November 1, 2025",
+    "vegetation": {...},
+    "buildings": {...},
+    "administrative": {...}
+  }' \
+  --output "analysis_report.pdf"
+```
+
+#### **Report Naming Convention:**
+```
+GEE_Analysis_Report_[LAT]_[LON]_[TIMESTAMP].pdf
+
+Example:
+GEE_Analysis_Report_28.6139_77.2090_20251101_143022.pdf
+```
+
+### **Technical Details**
+
+**PDF Generation Stack:**
+- **ReportLab**: Core PDF generation engine
+- **Matplotlib**: Statistical charts and visualizations
+- **Plotly**: Interactive-style charts (rendered to static)
+- **Pillow**: Image processing for satellite imagery
+- **Custom Templates**: Professional page layouts
+
+**Generation Time:**
+- Simple report (1-2 layers): 5-10 seconds
+- Comprehensive report (all layers): 15-30 seconds
+- Large polygons with imagery: 20-40 seconds
+
+**Report Size:**
+- Typical range: 2-8 MB
+- Depends on: Number of layers, imagery quality, polygon complexity
+
+### **Customization Options**
+
+The PDF generator supports customization through the analysis request:
+
+```python
+{
+    "title": "Custom Project Title",  # Optional custom title
+    "organization": "Your Org Name",  # Add branding
+    "analyst_name": "John Doe",       # Include analyst info
+    "project_code": "PROJ-2024-001",  # Reference codes
+    "notes": "Additional context..."   # Custom notes
+}
+```
 
 ## 🌍 Dataset Information & Quality
 

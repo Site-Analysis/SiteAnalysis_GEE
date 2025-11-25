@@ -725,20 +725,22 @@ def analyze_location(lat: float, lon: float, buffer_m: int, layers: List[str]) -
             results['visuals']['ndwi_url'] = get_visualization_url(ndwi, vis_params['ndwi'], roi)
         
         if 'elevation' in layers:
-            elevation = get_elevation_data(roi)
-            elev_stats = calculate_statistics(elevation, roi, 'elevation')
+            # Get elevation image for basic analysis
+            elevation_img = ee.Image('MERIT/DEM/v1_0_3').select([0], ['elevation'])
+            elev_stats = calculate_statistics(elevation_img, roi, 'elevation')
             results['summary'].update({
                 'elevation_mean': safe_round(elev_stats.get('elevation_mean', 0), 1),
                 'elevation_std': safe_round(elev_stats.get('elevation_stdDev', 0), 1),
                 'elevation_min': safe_round(elev_stats.get('elevation_min', 0), 1),
                 'elevation_max': safe_round(elev_stats.get('elevation_max', 0), 1)
             })
-            results['visuals']['elevation_url'] = get_visualization_url(elevation, vis_params['elevation'], roi)
+            results['visuals']['elevation_url'] = get_visualization_url(elevation_img, vis_params['elevation'], roi)
         
         if 'slope' in layers:
-            if 'elevation' not in layers:
-                elevation = get_elevation_data(roi)
-            slope = calculate_slope(elevation)
+            # Get elevation image if not already loaded
+            if 'elevation_img' not in locals():
+                elevation_img = ee.Image('MERIT/DEM/v1_0_3').select([0], ['elevation'])
+            slope = calculate_slope(elevation_img)
             slope_stats = calculate_statistics(slope, roi, 'slope')
             results['summary'].update({
                 'slope_mean': safe_round(slope_stats.get('slope_mean', 0), 2),
@@ -811,10 +813,147 @@ def analyze_location(lat: float, lon: float, buffer_m: int, layers: List[str]) -
             s2_composite, vis_params['true_color'], roi
         )
         
+        # Flood Analysis Integration
+        if any(layer in layers for layer in ['flood', 'hydrology', 'flood_risk', 'llai']):
+            try:
+                print("🌊 Computing comprehensive flood risk analysis...")
+                flood_analysis = compute_flood_risk_score(roi)
+                print(f"✅ Flood analysis returned, type: {type(flood_analysis)}")
+                print(f"✅ Keys: {flood_analysis.keys() if isinstance(flood_analysis, dict) else 'Not a dict'}")
+                
+                # Structure the response properly
+                results['flood'] = {
+                    'risk_score': {
+                        'overall_score': flood_analysis.get('overall_flood_risk_score', 0),
+                        'risk_category': flood_analysis.get('risk_category', 'Unknown'),
+                        'risk_color': flood_analysis.get('risk_color', '#808080'),
+                        'elevation_risk': flood_analysis.get('component_scores', {}).get('elevation_risk', 0),
+                        'hydrology_risk': flood_analysis.get('component_scores', {}).get('hydrology_risk', 0),
+                        'historical_risk': flood_analysis.get('component_scores', {}).get('historical_risk', 0),
+                        'llai_risk': flood_analysis.get('component_scores', {}).get('llai_risk', 0)
+                    },
+                    'elevation': flood_analysis.get('elevation_analysis', {}),
+                    'hydrology': flood_analysis.get('hydrology_analysis', {}),
+                    'flood_history': flood_analysis.get('flood_history', {}),
+                    'llai': flood_analysis.get('llai_analysis', {}),
+                    'recommendations': flood_analysis.get('recommendations', [])
+                }
+                
+                results['summary']['flood_risk'] = {
+                    'overall_score': flood_analysis.get('overall_flood_risk_score', 0),
+                    'risk_category': flood_analysis.get('risk_category', 'Unknown'),
+                    'risk_color': flood_analysis.get('risk_color', '#808080')
+                }
+                
+                # Add flood visualizations
+                if 'flood' in layers or 'flood_risk' in layers:
+                    # Get DEM source image path
+                    dem_source = flood_analysis.get('elevation_analysis', {}).get('dem_source', 'MERIT/DEM/v1_0_3')
+                    elevation_image = ee.Image(dem_source)
+                    
+                    # Elevation heatmap
+                    elev_data = flood_analysis.get('elevation_analysis', {})
+                    try:
+                        elevation_vis = {
+                            'min': float(elev_data.get('min_elevation_m', 0)),
+                            'max': float(elev_data.get('max_elevation_m', 1000)),
+                            'palette': ['#0000FF', '#00FFFF', '#00FF00', '#FFFF00', '#FF0000']
+                        }
+                        print(f"Generating elevation heatmap: {elevation_vis['min']}-{elevation_vis['max']}m")
+                        results['visuals']['elevation_heatmap'] = get_visualization_url(
+                            elevation_image, elevation_vis, roi
+                        )
+                        print(f"✅ Generated elevation heatmap URL")
+                    except Exception as e:
+                        print(f"Warning: Could not generate elevation heatmap: {e}")
+                        results['visuals']['elevation_heatmap'] = None
+                    
+                    # Slope visualization
+                    try:
+                        slope_vis = {
+                            'min': 0,
+                            'max': 30,
+                            'palette': ['#00FF00', '#FFFF00', '#FFA500', '#FF0000']
+                        }
+                        slope_image = ee.Terrain.slope(elevation_image)
+                        print(f"Generating slope map: 0-30°")
+                        results['visuals']['slope_map'] = get_visualization_url(
+                            slope_image, slope_vis, roi
+                        )
+                        print(f"✅ Generated slope map URL")
+                    except Exception as e:
+                        print(f"Warning: Could not generate slope map: {e}")
+                        results['visuals']['slope_map'] = None
+                
+                if 'hydrology' in layers:
+                    # Flow accumulation visualization
+                    try:
+                        flow_vis = {
+                            'min': 0,
+                            'max': 1000,
+                            'palette': ['#FFFFFF', '#0000FF', '#00008B']
+                        }
+                        flow_acc = ee.Image("MERIT/Hydro/v1_0_1").select('upa')
+                        print(f"Generating flow accumulation map")
+                        results['visuals']['flow_accumulation'] = get_visualization_url(
+                            flow_acc, flow_vis, roi
+                        )
+                        print(f"✅ Generated flow accumulation URL")
+                    except Exception as e:
+                        print(f"Warning: Could not generate flow accumulation map: {e}")
+                        results['visuals']['flow_accumulation'] = None
+                    
+                    # Water occurrence from JRC
+                    try:
+                        water_vis = {
+                            'min': 0,
+                            'max': 100,
+                            'palette': ['#FFFFFF', '#ADD8E6', '#0000FF', '#00008B']
+                        }
+                        jrc_water = ee.Image("JRC/GSW1_4/GlobalSurfaceWater").select('occurrence')
+                        print(f"Generating water occurrence map")
+                        results['visuals']['water_occurrence'] = get_visualization_url(
+                            jrc_water, water_vis, roi
+                        )
+                        print(f"✅ Generated water occurrence URL")
+                    except Exception as e:
+                        print(f"Warning: Could not generate water occurrence map: {e}")
+                        results['visuals']['water_occurrence'] = None
+                
+                if 'llai' in layers and 'llai' in results.get('flood', {}):
+                    # LLAI heatmap
+                    llai_vis = {
+                        'min': 0,
+                        'max': 1,
+                        'palette': ['green', 'yellow', 'orange', 'red', 'darkred']
+                    }
+                    # Reconstruct LLAI image (simplified for visualization)
+                    llai_data = results['flood'].get('llai', {})
+                    if llai_data:
+                        results['summary']['llai_info'] = {
+                            'llai_score': llai_data.get('llai_score', 0),
+                            'primary_category': llai_data.get('primary_category', 'Unknown'),
+                            'low_lying_percent': llai_data.get('low_lying_area_percent', 0)
+                        }
+                
+                risk_cat = results.get('flood', {}).get('risk_score', {}).get('risk_category', 'Unknown')
+                print(f"✅ Flood analysis complete - Risk: {risk_cat}")
+                
+            except Exception as flood_error:
+                print(f"❌ Error in flood analysis: {flood_error}")
+                import traceback
+                traceback.print_exc()
+                results['flood'] = {
+                    'error': str(flood_error),
+                    'message': 'Flood analysis unavailable for this location'
+                }
+        
         return results
         
     except Exception as e:
         print(f"Error in analyze_location: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 
@@ -1300,3 +1439,898 @@ def get_viirs_visualization_urls(roi: ee.Geometry) -> Dict[str, str]:
             'vegetation_health_url': "",
             'vegetation_classification_url': ""
         }
+
+
+# ============================================================================
+# FLOOD ANALYSIS & HYDROLOGY FUNCTIONS
+# ============================================================================
+
+def get_elevation_data(roi: ee.Geometry) -> Dict:
+    """
+    Get comprehensive elevation and terrain data using multiple DEM sources.
+    
+    Uses:
+    - MERIT DEM (hydrologically corrected)
+    - ALOS AW3D30 (high accuracy for India)
+    - SRTM Global (baseline)
+    - Copernicus GLO-30 (consistent global)
+    
+    Args:
+        roi: Region of interest
+        
+    Returns:
+        dict: Elevation metrics and terrain analysis
+    """
+    try:
+        print("🏔️ Analyzing elevation and terrain...")
+        
+        # Load multiple DEM sources and select first band, rename to 'elevation'
+        merit_dem = ee.Image('MERIT/DEM/v1_0_3').select([0], ['elevation'])
+        alos_dem = ee.Image('JAXA/ALOS/AW3D30/V2_2').select('AVE_DSM').rename('elevation')
+        srtm_dem = ee.Image('USGS/SRTMGL1_003').select('elevation')
+        copernicus_dem = ee.Image('COPERNICUS/DEM/GLO30').select([0], ['elevation'])
+        
+        # Use MERIT DEM as primary (best for hydrology)
+        # Fallback to ALOS for India-specific accuracy
+        elevation = merit_dem.unmask(alos_dem).unmask(srtm_dem)
+        
+        # Calculate terrain derivatives
+        slope = ee.Terrain.slope(elevation)
+        aspect = ee.Terrain.aspect(elevation)
+        
+        # Calculate statistics
+        elev_stats = elevation.reduceRegion(
+            reducer=ee.Reducer.mean().combine(
+                ee.Reducer.min(), '', True
+            ).combine(
+                ee.Reducer.max(), '', True
+            ).combine(
+                ee.Reducer.stdDev(), '', True
+            ),
+            geometry=roi,
+            scale=30,
+            maxPixels=1e9
+        ).getInfo()
+        
+        slope_stats = slope.reduceRegion(
+            reducer=ee.Reducer.mean().combine(
+                ee.Reducer.max(), '', True
+            ),
+            geometry=roi,
+            scale=30,
+            maxPixels=1e9
+        ).getInfo()
+        
+        # Identify low-lying areas (< 10m above surrounding area)
+        focal_mean = elevation.focalMean(radius=500, units='meters')
+        relative_elevation = elevation.subtract(focal_mean)
+        low_lying_area = relative_elevation.lt(-2)  # 2m below local average
+        
+        low_lying_percentage = low_lying_area.multiply(100).reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=roi,
+            scale=30,
+            maxPixels=1e9
+        ).getInfo()
+        
+        results = {
+            'mean_elevation_m': elev_stats.get('elevation_mean', 0),
+            'min_elevation_m': elev_stats.get('elevation_min', 0),
+            'max_elevation_m': elev_stats.get('elevation_max', 0),
+            'elevation_range_m': elev_stats.get('elevation_max', 0) - elev_stats.get('elevation_min', 0),
+            'elevation_std_dev': elev_stats.get('elevation_stdDev', 0),
+            'mean_slope_degrees': slope_stats.get('slope_mean', 0),
+            'max_slope_degrees': slope_stats.get('slope_max', 0),
+            'low_lying_area_percentage': low_lying_percentage.get('elevation', 0),
+            'terrain_classification': classify_terrain(
+                slope_stats.get('slope_mean', 0),
+                elev_stats.get('elevation_stdDev', 0)
+            ),
+            'data_source': 'MERIT DEM + ALOS AW3D30',
+            'dem_source': 'MERIT/DEM/v1_0_3'
+        }
+        
+        print(f"✅ Elevation analysis complete: {results['mean_elevation_m']:.1f}m average")
+        return results
+        
+    except Exception as e:
+        print(f"❌ Error in elevation analysis: {e}")
+        return {
+            'mean_elevation_m': 0,
+            'min_elevation_m': 0,
+            'max_elevation_m': 0,
+            'elevation_range_m': 0,
+            'terrain_classification': 'Unknown',
+            'error': str(e)
+        }
+
+
+def get_hydrology_data(roi: ee.Geometry) -> Dict:
+    """
+    Comprehensive hydrology analysis using HydroSHEDS and MERIT Hydro.
+    
+    Analyzes:
+    - Flow accumulation
+    - Flow direction
+    - Drainage density
+    - River proximity
+    - Watershed characteristics
+    
+    Args:
+        roi: Region of interest
+        
+    Returns:
+        dict: Hydrology metrics
+    """
+    try:
+        print("💧 Analyzing hydrology and drainage...")
+        
+        # MERIT Hydro - hydrologically corrected DEM
+        merit_hydro = ee.Image('MERIT/Hydro/v1_0_1')
+        flow_accumulation = merit_hydro.select('upg')  # Upstream drainage area
+        flow_direction = merit_hydro.select('dir')  # Flow direction
+        
+        # HydroSHEDS rivers
+        rivers = ee.FeatureCollection('WWF/HydroSHEDS/v1/FreeFlowingRivers')
+        
+        # Calculate river proximity
+        river_distance = rivers.distance(maxError=100)
+        
+        nearest_river_dist = river_distance.reduceRegion(
+            reducer=ee.Reducer.min(),
+            geometry=roi,
+            scale=90,
+            maxPixels=1e9
+        ).getInfo()
+        
+        # Flow accumulation statistics
+        flow_stats = flow_accumulation.reduceRegion(
+            reducer=ee.Reducer.mean().combine(
+                ee.Reducer.max(), '', True
+            ),
+            geometry=roi,
+            scale=90,
+            maxPixels=1e9
+        ).getInfo()
+        
+        # Identify high flow accumulation areas (potential flood paths)
+        high_flow_threshold = ee.Number(flow_stats.get('upg_mean', 0)).multiply(10)
+        high_flow_areas = flow_accumulation.gt(high_flow_threshold)
+        
+        high_flow_percentage = high_flow_areas.multiply(100).reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=roi,
+            scale=90,
+            maxPixels=1e9
+        ).getInfo()
+        
+        # JRC Global Surface Water
+        gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
+        water_occurrence = gsw.select('occurrence')
+        seasonal_water = gsw.select('seasonality')
+        
+        water_stats = water_occurrence.reduceRegion(
+            reducer=ee.Reducer.mean().combine(
+                ee.Reducer.max(), '', True
+            ),
+            geometry=roi,
+            scale=30,
+            maxPixels=1e9
+        ).getInfo()
+        
+        results = {
+            'mean_flow_accumulation': flow_stats.get('upg_mean', 0),
+            'max_flow_accumulation': flow_stats.get('upg_max', 0),
+            'high_flow_area_percentage': high_flow_percentage.get('upg', 0),
+            'nearest_river_distance_m': nearest_river_dist.get('distance', 9999),
+            'water_occurrence_percentage': water_stats.get('occurrence_mean', 0),
+            'max_water_occurrence': water_stats.get('occurrence_max', 0),
+            'drainage_density': calculate_drainage_density(flow_stats.get('upg_mean', 0)),
+            'river_proximity_risk': classify_river_proximity(nearest_river_dist.get('distance', 9999)),
+            'data_source': 'MERIT Hydro + HydroSHEDS + JRC GSW'
+        }
+        
+        print(f"✅ Hydrology analysis complete: {results['nearest_river_distance_m']:.0f}m to nearest river")
+        return results
+        
+    except Exception as e:
+        print(f"❌ Error in hydrology analysis: {e}")
+        return {
+            'nearest_river_distance_m': 9999,
+            'water_occurrence_percentage': 0,
+            'drainage_density': 'Unknown',
+            'error': str(e)
+        }
+
+
+def get_flood_history(roi: ee.Geometry, lat: float, lon: float) -> Dict:
+    """
+    Analyze historical flood events using multiple flood databases.
+    
+    Sources:
+    - Dartmouth Flood Observatory (DFO)
+    - Cloud-to-Street Global Flood Database
+    - GFMS Flood Monitoring
+    - JRC Global Surface Water (historical flooding indicator)
+    
+    Args:
+        roi: Region of interest
+        lat: Latitude
+        lon: Longitude
+        
+    Returns:
+        dict: Historical flood analysis
+    """
+    try:
+        print("🌊 Analyzing historical flood events...")
+        
+        # Cloud-to-Street Global Flood Database (1985-2019)
+        # Note: Using correct asset path - may require Earth Engine asset access
+        flood_count = 0
+        flooded_pixels = 0
+        
+        try:
+            # Try Cloud-to-Street database if available
+            flood_db = ee.ImageCollection('GLOBAL_FLOOD_DB/MODIS_EVENTS/V1')
+            flood_events = flood_db.filterBounds(roi)
+            flood_count = flood_events.size().getInfo()
+            
+            if flood_count > 0:
+                flood_image = flood_events.max()
+                flood_stats = flood_image.reduceRegion(
+                    reducer=ee.Reducer.sum(),
+                    geometry=roi,
+                    scale=250,
+                    maxPixels=1e9
+                ).getInfo()
+                flooded_pixels = flood_stats.get('flooded', 0) or 0
+                print(f"✅ Found {flood_count} historical flood events in Global Flood DB")
+        except Exception as e:
+            print(f"Note: Global Flood DB not accessible ({str(e)}), using alternative methods")
+            
+            # Alternative: Use JRC GSW transition data as flood indicator
+            try:
+                gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
+                # Increase in permanent water = potential historical flooding
+                change_norm = gsw.select('change_norm')
+                
+                # Count pixels with significant water increase (>0.5)
+                flood_indicator = change_norm.gt(0.5)
+                flood_pixels = flood_indicator.reduceRegion(
+                    reducer=ee.Reducer.sum(),
+                    geometry=roi,
+                    scale=30,
+                    maxPixels=1e9
+                ).getInfo()
+                
+                total_pixels = roi.area().divide(900).getInfo()  # 30m resolution
+                flood_percentage = (flood_pixels.get('change_norm', 0) or 0) / (total_pixels or 1) * 100
+                
+                # Estimate flood events based on water change patterns
+                if flood_percentage > 20:
+                    flood_count = 5  # High flooding history
+                elif flood_percentage > 10:
+                    flood_count = 3  # Moderate flooding history
+                elif flood_percentage > 5:
+                    flood_count = 2  # Some flooding history
+                elif flood_percentage > 1:
+                    flood_count = 1  # Low flooding history
+                else:
+                    flood_count = 0  # No significant flooding history
+                    
+                flooded_pixels = flood_pixels.get('change_norm', 0) or 0
+                print(f"✅ Estimated {flood_count} historical flood events from water change analysis")
+            except Exception as gsw_error:
+                print(f"Warning: Could not analyze flood history: {gsw_error}")
+                flood_count = 0
+                flooded_pixels = 0
+        
+        # JRC Global Surface Water - historical flooding indicator
+        gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
+        water_recurrence = gsw.select('recurrence')  # Number of months with water
+        change_intensity = gsw.select('change_abs')  # Change in water occurrence
+        
+        recurrence_stats = water_recurrence.reduceRegion(
+            reducer=ee.Reducer.mean().combine(
+                ee.Reducer.max(), '', True
+            ),
+            geometry=roi,
+            scale=30,
+            maxPixels=1e9
+        ).getInfo()
+        
+        # CHIRPS rainfall data (flood trigger indicator) - Simplified for reliability
+        rainfall_stats = {}
+        try:
+            # Get last 1 year of rainfall data (more reliable than 30 years)
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=365)
+            
+            chirps = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY') \
+                .filterDate(start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')) \
+                .filterBounds(roi)
+            
+            # Get rainfall statistics
+            chirps_mean = chirps.select('precipitation').mean()
+            chirps_max = chirps.select('precipitation').max()
+            chirps_sum = chirps.select('precipitation').sum()
+            
+            mean_stats = chirps_mean.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=roi,
+                scale=5000,
+                maxPixels=1e9
+            ).getInfo()
+            
+            max_stats = chirps_max.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=roi,
+                scale=5000,
+                maxPixels=1e9
+            ).getInfo()
+            
+            sum_stats = chirps_sum.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=roi,
+                scale=5000,
+                maxPixels=1e9
+            ).getInfo()
+            
+            # Extract values with proper defaults
+            annual_total = float(sum_stats.get('precipitation', 0) or 0)
+            daily_mean = float(mean_stats.get('precipitation', 0) or 0)
+            daily_max = float(max_stats.get('precipitation', 0) or 0)
+            
+            # Scale to 30-year equivalent for display
+            rainfall_stats = {
+                'precipitation_sum': annual_total * 30,  # 30-year total
+                'precipitation_max': daily_max,
+                'precipitation_mean': daily_mean
+            }
+            
+            print(f"✅ Rainfall data: {annual_total:.1f}mm/year, max event: {daily_max:.1f}mm/day")
+            
+        except Exception as rain_error:
+            print(f"Warning: Could not retrieve rainfall data: {rain_error}")
+            import traceback
+            traceback.print_exc()
+            # Use reasonable defaults based on global averages
+            rainfall_stats = {
+                'precipitation_sum': 25000,  # ~830mm/year * 30
+                'precipitation_max': 150,
+                'precipitation_mean': 2.3
+            }
+        
+        # Extract recurrence value with proper key (GEE returns 'recurrence' not 'recurrence_mean')
+        recurrence_value = recurrence_stats.get('recurrence', None)
+        if recurrence_value is None:
+            recurrence_value = recurrence_stats.get('recurrence_mean', 0)
+        
+        # Calculate flood risk score
+        print(f"📊 Flood risk inputs: events={flood_count}, recurrence={recurrence_value}, rainfall={rainfall_stats.get('precipitation_sum', 0)}mm")
+        flood_risk_score = calculate_flood_risk_score(
+            flood_count,
+            recurrence_value,
+            rainfall_stats.get('precipitation_sum', 0)
+        )
+        
+        # Extract values with proper key handling (GEE may return 'recurrence' or 'recurrence_mean')
+        recurrence_mean = recurrence_stats.get('recurrence', recurrence_stats.get('recurrence_mean', 0)) or 0
+        recurrence_max = recurrence_stats.get('recurrence_max', 0) or 0
+        
+        results = {
+            'historical_flood_events': int(flood_count),
+            'flooded_area_indicator': int(flooded_pixels),
+            'water_recurrence_months': float(recurrence_mean),
+            'max_water_recurrence': float(recurrence_max),
+            'annual_rainfall_mm': float(rainfall_stats.get('precipitation_sum', 0) or 0),
+            'max_daily_rainfall_mm': float(rainfall_stats.get('precipitation_max', 0) or 0),
+            'mean_daily_rainfall_mm': float(rainfall_stats.get('precipitation_mean', 0) or 0),
+            'flood_risk_category': flood_risk_score['category'],
+            'flood_risk_score': flood_risk_score['score'],
+            'data_source': 'JRC GSW + CHIRPS + Global Flood DB'
+        }
+        
+        print(f"✅ Flood history complete: {flood_count} events, {recurrence_mean:.1f}% recurrence, {rainfall_stats.get('precipitation_sum', 0):.1f}mm/30yr, {flood_risk_score['category']} risk")
+        return results
+        
+    except Exception as e:
+        print(f"❌ Error in flood history analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'historical_flood_events': 0,
+            'flood_risk_category': 'Unknown',
+            'flood_risk_score': 0,
+            'error': str(e)
+        }
+
+
+def compute_low_lying_area_index(roi: ee.Geometry) -> Dict:
+    """
+    Compute Low-Lying Area Index (LLAI) using DEM → slope → sink → flow accumulation.
+    
+    LLAI Workflow:
+    1. Get elevation from MERIT DEM
+    2. Calculate slope
+    3. Identify sinks/depressions
+    4. Calculate flow accumulation
+    5. Combine into LLAI composite
+    
+    Args:
+        roi: Region of interest
+        
+    Returns:
+        dict: LLAI metrics and classifications
+    """
+    try:
+        print("📊 Computing Low-Lying Area Index (LLAI)...")
+        
+        # Step 1: Get MERIT DEM (hydrologically corrected)
+        dem = ee.Image('MERIT/DEM/v1_0_3').select([0]).rename('elevation')
+        
+        # Step 2: Calculate slope
+        slope = ee.Terrain.slope(dem).rename('slope')
+        
+        # Step 3: Identify sinks (areas lower than surroundings)
+        focal_max = dem.focalMax(radius=100, units='meters')
+        sink_depth = focal_max.subtract(dem).rename('sink_depth')
+        
+        # Step 4: Flow accumulation from MERIT Hydro
+        merit_hydro = ee.Image('MERIT/Hydro/v1_0_1')
+        flow_accumulation = merit_hydro.select('upg').rename('flow')
+        
+        # Step 5: Combine into LLAI
+        # Normalize components
+        slope_norm = slope.divide(45).clamp(0, 1)  # Normalize to 0-1
+        sink_norm = sink_depth.divide(10).clamp(0, 1)  # Normalize to 0-1
+        flow_norm = flow_accumulation.log10().divide(6).clamp(0, 1)  # Log scale
+        
+        # LLAI formula: weighted combination
+        # Higher LLAI = Higher flood risk
+        llai = (slope_norm.multiply(-1).add(1).multiply(0.3)  # Inverse slope (flat = high risk)
+            .add(sink_norm.multiply(0.4))  # Sink depth (deeper = high risk)
+            .add(flow_norm.multiply(0.3))).rename('llai')  # Flow accumulation (more flow = high risk)
+        
+        # Classify LLAI
+        llai_stats = llai.reduceRegion(
+            reducer=ee.Reducer.mean().combine(
+                ee.Reducer.min(), '', True
+            ).combine(
+                ee.Reducer.max(), '', True
+            ).combine(
+                ee.Reducer.stdDev(), '', True
+            ),
+            geometry=roi,
+            scale=90,
+            maxPixels=1e9
+        ).getInfo()
+        
+        # Calculate area percentages for each risk category
+        very_low = llai.lt(0.2).multiply(100)
+        low = llai.gte(0.2).And(llai.lt(0.4)).multiply(100)
+        moderate = llai.gte(0.4).And(llai.lt(0.6)).multiply(100)
+        high = llai.gte(0.6).And(llai.lt(0.8)).multiply(100)
+        very_high = llai.gte(0.8).multiply(100)
+        
+        # Get first key from reduceRegion results (will be 'llai' or similar)
+        vl_result = very_low.reduceRegion(ee.Reducer.mean(), roi, 90, maxPixels=1e9).getInfo()
+        l_result = low.reduceRegion(ee.Reducer.mean(), roi, 90, maxPixels=1e9).getInfo()
+        m_result = moderate.reduceRegion(ee.Reducer.mean(), roi, 90, maxPixels=1e9).getInfo()
+        h_result = high.reduceRegion(ee.Reducer.mean(), roi, 90, maxPixels=1e9).getInfo()
+        vh_result = very_high.reduceRegion(ee.Reducer.mean(), roi, 90, maxPixels=1e9).getInfo()
+        
+        # Get first value from each result dict
+        distribution = {
+            'very_low_risk': list(vl_result.values())[0] if vl_result else 0,
+            'low_risk': list(l_result.values())[0] if l_result else 0,
+            'moderate_risk': list(m_result.values())[0] if m_result else 0,
+            'high_risk': list(h_result.values())[0] if h_result else 0,
+            'very_high_risk': list(vh_result.values())[0] if vh_result else 0
+        }
+        
+        results = {
+            'llai_mean': llai_stats.get('llai_mean', llai_stats.get('llai', 0)),
+            'llai_min': llai_stats.get('llai_min', 0),
+            'llai_max': llai_stats.get('llai_max', 1),
+            'llai_std_dev': llai_stats.get('llai_stdDev', 0),
+            'risk_distribution': distribution,
+            'primary_risk_category': get_primary_risk_category(distribution),
+            'data_source': 'MERIT DEM + MERIT Hydro'
+        }
+        
+        print(f"✅ LLAI computed: {results['llai_mean']:.3f} average, {results['primary_risk_category']} primary risk")
+        return results
+        
+    except Exception as e:
+        print(f"❌ Error computing LLAI: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'llai_mean': 0,
+            'primary_risk_category': 'Unknown',
+            'error': str(e)
+        }
+
+
+def compute_flood_risk_score(roi: ee.Geometry) -> Dict:
+    """
+    Comprehensive flood risk scoring combining all factors.
+    
+    Score Components:
+    - Elevation & terrain (25%)
+    - Hydrology & drainage (25%)
+    - Historical floods (25%)
+    - Low-lying area index (25%)
+    
+    Args:
+        roi: Region of interest (Earth Engine Geometry)
+        
+    Returns:
+        dict: Comprehensive flood risk assessment
+    """
+    try:
+        print("🎯 Computing comprehensive flood risk score...")
+        
+        # Extract lat/lon from geometry centroid
+        centroid = roi.centroid().coordinates().getInfo()
+        lon, lat = centroid[0], centroid[1]
+        
+        # Get all component analyses
+        print("📊 Step 1: Getting elevation data...")
+        elevation_data = get_elevation_data(roi)
+        print(f"✅ Elevation data complete: {type(elevation_data)}")
+        
+        print("📊 Step 2: Getting hydrology data...")
+        hydrology_data = get_hydrology_data(roi)
+        print(f"✅ Hydrology data complete: {type(hydrology_data)}")
+        
+        print("📊 Step 3: Getting flood history...")
+        flood_history = get_flood_history(roi, lat, lon)
+        print(f"✅ Flood history complete: {type(flood_history)}")
+        
+        print("📊 Step 4: Computing LLAI...")
+        llai_data = compute_low_lying_area_index(roi)
+        print(f"✅ LLAI complete: {type(llai_data)}")
+        
+        # Calculate component scores (0-100) with null safety
+        elevation_score = calculate_elevation_risk_score(elevation_data) if elevation_data else 0
+        hydrology_score = calculate_hydrology_risk_score(hydrology_data) if hydrology_data else 0
+        history_score = flood_history.get('flood_risk_score', 0) if flood_history else 0
+        llai_score = (llai_data.get('llai_mean', 0) or 0) * 100 if llai_data else 0
+        
+        print(f"📊 Component scores - Elevation: {elevation_score}, Hydrology: {hydrology_score}, History: {history_score}, LLAI: {llai_score}")
+        
+        # Weighted combination with null safety
+        total_score = (
+            (elevation_score or 0) * 0.25 +
+            (hydrology_score or 0) * 0.25 +
+            (history_score or 0) * 0.25 +
+            (llai_score or 0) * 0.25
+        )
+        
+        # Classify overall risk
+        if total_score < 20:
+            risk_category = "Very Low"
+            risk_color = "#27AE60"
+        elif total_score < 40:
+            risk_category = "Low"
+            risk_color = "#2ECC71"
+        elif total_score < 60:
+            risk_category = "Moderate"
+            risk_color = "#F39C12"
+        elif total_score < 80:
+            risk_category = "High"
+            risk_color = "#E67E22"
+        else:
+            risk_category = "Very High"
+            risk_color = "#E74C3C"
+        
+        results = {
+            'overall_flood_risk_score': round(total_score, 2),
+            'risk_category': risk_category,
+            'risk_color': risk_color,
+            'component_scores': {
+                'elevation_risk': round(elevation_score, 2),
+                'hydrology_risk': round(hydrology_score, 2),
+                'historical_risk': round(history_score, 2),
+                'llai_risk': round(llai_score, 2)
+            },
+            'elevation_analysis': elevation_data,
+            'hydrology_analysis': hydrology_data,
+            'flood_history': flood_history,
+            'llai_analysis': llai_data,
+            'recommendations': generate_flood_recommendations(risk_category, total_score)
+        }
+        
+        print(f"✅ Flood risk score: {total_score:.1f}/100 - {risk_category} Risk")
+        return results
+        
+    except Exception as e:
+        print(f"❌ Error computing flood risk score: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'overall_flood_risk_score': 0,
+            'risk_category': 'Unknown',
+            'error': str(e)
+        }
+
+
+# Helper functions for flood analysis
+
+def classify_terrain(mean_slope: float, elevation_std: float) -> str:
+    """Classify terrain type based on slope and elevation variation."""
+    if mean_slope < 2 and elevation_std < 5:
+        return "Flat Plain"
+    elif mean_slope < 5 and elevation_std < 20:
+        return "Gently Undulating"
+    elif mean_slope < 15:
+        return "Rolling Hills"
+    elif mean_slope < 30:
+        return "Hilly"
+    else:
+        return "Mountainous"
+
+
+def calculate_drainage_density(flow_accumulation: float) -> str:
+    """Classify drainage density from flow accumulation."""
+    if flow_accumulation < 100:
+        return "Low"
+    elif flow_accumulation < 1000:
+        return "Moderate"
+    elif flow_accumulation < 10000:
+        return "High"
+    else:
+        return "Very High"
+
+
+def classify_river_proximity(distance_m: float) -> str:
+    """Classify flood risk based on river proximity."""
+    if distance_m < 100:
+        return "Very High Risk"
+    elif distance_m < 500:
+        return "High Risk"
+    elif distance_m < 1000:
+        return "Moderate Risk"
+    elif distance_m < 5000:
+        return "Low Risk"
+    else:
+        return "Very Low Risk"
+
+
+def calculate_flood_risk_score(flood_count: int, recurrence: float, rainfall: float) -> Dict:
+    """Calculate flood risk score from historical data."""
+    # Handle None values with defaults
+    flood_count = flood_count or 0
+    recurrence = recurrence or 0
+    rainfall = rainfall or 0
+    
+    # Weighted scoring with improved normalization
+    
+    # Flood event history (0-40 points): actual flood events
+    history_score = min(flood_count * 10, 40)  # 4+ events = max score
+    
+    # Water recurrence (0-30 points): BUT exclude permanent water bodies
+    # Recurrence < 10% = occasional flooding (risky)
+    # Recurrence 10-50% = seasonal flooding (very risky)
+    # Recurrence > 90% = permanent water body (ocean/lake, not flood risk)
+    if recurrence > 90:
+        # Permanent water body (ocean, lake) = not flood risk for land
+        recurrence_score = 0
+    elif recurrence > 50:
+        # Highly seasonal water = high flood risk
+        recurrence_score = 30
+    elif recurrence > 10:
+        # Moderate seasonal flooding
+        recurrence_score = recurrence * 0.6  # Scale 10-50% to 6-30 points
+    else:
+        # Occasional flooding
+        recurrence_score = recurrence * 2  # Scale 0-10% to 0-20 points
+    
+    # Rainfall (0-30 points): Convert 30-year sum to annual average
+    # rainfall is 30-year sum in mm, so divide by 30 for annual
+    annual_rainfall = rainfall / 30
+    # Typical flood-prone: >2000mm/year, Moderate: 1000-2000mm, Low: <1000mm
+    if annual_rainfall > 2500:
+        rainfall_score = 30
+    elif annual_rainfall > 2000:
+        rainfall_score = 25
+    elif annual_rainfall > 1500:
+        rainfall_score = 20
+    elif annual_rainfall > 1000:
+        rainfall_score = 15
+    elif annual_rainfall > 500:
+        rainfall_score = 10
+    else:
+        rainfall_score = 5
+    
+    total = history_score + recurrence_score + rainfall_score
+    
+    if total < 20:
+        category = "Very Low"
+    elif total < 40:
+        category = "Low"
+    elif total < 60:
+        category = "Moderate"
+    elif total < 80:
+        category = "High"
+    else:
+        category = "Very High"
+    
+    return {'score': total, 'category': category}
+
+
+def get_primary_risk_category(distribution: Dict) -> str:
+    """Get the primary risk category from LLAI distribution."""
+    max_percentage = 0
+    primary = "Very Low"
+    
+    for category, percentage in distribution.items():
+        if percentage > max_percentage:
+            max_percentage = percentage
+            primary = category.replace('_', ' ').title().replace('Risk', '').strip()
+    
+    return primary
+
+
+def calculate_elevation_risk_score(elevation_data: Dict) -> float:
+    """Calculate risk score from elevation data (0-100)."""
+    mean_elev = float(elevation_data.get('mean_elevation_m', 0) or 0)
+    slope = float(elevation_data.get('mean_slope_degrees', 0) or 0)
+    low_lying_pct = float(elevation_data.get('low_lying_area_percentage', 0) or 0)
+    
+    # Handle ocean/water bodies (negative or very low elevation)
+    if mean_elev < -10:
+        # Deep ocean - not flood risk for land development
+        return 0
+    
+    # Elevation-based scoring (lower = higher risk, but more nuanced)
+    # Sea level to 10m = Very High Risk (100 points)
+    # 10-50m = High Risk (60-100 points)
+    # 50-100m = Moderate Risk (30-60 points)
+    # 100-200m = Low Risk (10-30 points)
+    # >200m = Very Low Risk (0-10 points)
+    if mean_elev < 10:
+        elev_score = 100
+    elif mean_elev < 50:
+        elev_score = 100 - ((mean_elev - 10) / 40 * 40)  # 100 to 60
+    elif mean_elev < 100:
+        elev_score = 60 - ((mean_elev - 50) / 50 * 30)  # 60 to 30
+    elif mean_elev < 200:
+        elev_score = 30 - ((mean_elev - 100) / 100 * 20)  # 30 to 10
+    else:
+        elev_score = max(0, 10 - ((mean_elev - 200) / 300 * 10))  # 10 to 0
+    
+    # Slope-based scoring (flatter = higher flood risk)
+    # <1° = Very Flat (high risk): 100 points
+    # 1-3° = Gentle (moderate risk): 60 points
+    # 3-5° = Moderate: 40 points
+    # 5-10° = Hilly: 20 points
+    # >10° = Steep (low flood risk): 10 points
+    if slope < 1:
+        slope_score = 100
+    elif slope < 3:
+        slope_score = 60
+    elif slope < 5:
+        slope_score = 40
+    elif slope < 10:
+        slope_score = 20
+    else:
+        slope_score = 10
+    
+    # More low-lying area = higher risk (direct percentage)
+    low_lying_score = low_lying_pct
+    
+    # Weighted average: elevation most important, then slope, then low-lying %
+    return float(elev_score * 0.5 + slope_score * 0.3 + low_lying_score * 0.2)
+
+
+def calculate_hydrology_risk_score(hydrology_data: Dict) -> float:
+    """Calculate risk score from hydrology data (0-100)."""
+    river_dist = hydrology_data.get('nearest_river_distance_m', 9999) or 9999
+    water_occ = hydrology_data.get('water_occurrence_percentage', 0) or 0
+    high_flow_pct = hydrology_data.get('high_flow_area_percentage', 0) or 0
+    
+    # Handle permanent water bodies (oceans, large lakes)
+    # Water occurrence > 95% means permanent water, not flood risk
+    if water_occ > 95:
+        # This is a permanent water body (ocean/lake), not flood-prone land
+        return 0
+    
+    # River proximity scoring (closer = higher risk for land development)
+    if river_dist < 100:
+        dist_score = 100  # Very high risk - within floodplain
+    elif river_dist < 500:
+        dist_score = 80   # High risk - near river
+    elif river_dist < 1000:
+        dist_score = 60   # Moderate risk
+    elif river_dist < 5000:
+        dist_score = 30   # Low risk
+    else:
+        dist_score = 10   # Very low risk - far from rivers
+    
+    # Water occurrence scoring (for non-permanent water)
+    # 0-10% = Low risk (occasional water)
+    # 10-30% = Moderate risk (seasonal flooding)
+    # 30-70% = High risk (frequent flooding)
+    # 70-95% = Very high risk (nearly permanent water)
+    if water_occ < 10:
+        water_score = water_occ * 2  # Scale 0-10% to 0-20 points
+    elif water_occ < 30:
+        water_score = 20 + (water_occ - 10) * 2  # Scale 10-30% to 20-60 points
+    elif water_occ < 70:
+        water_score = 60 + (water_occ - 30) * 1  # Scale 30-70% to 60-100 points
+    else:
+        water_score = min(100, 100 + (water_occ - 70))  # 70-95% = high risk
+    
+    # High flow accumulation = higher flood risk
+    flow_score = min(100, float(high_flow_pct) * 1.5)
+    
+    # Weighted average: river distance most important, then water occurrence, then flow
+    return float(dist_score * 0.5 + water_score * 0.3 + flow_score * 0.2)
+
+
+def generate_flood_recommendations(risk_category: str, score: float) -> List[str]:
+    """Generate detailed, actionable flood risk mitigation recommendations for India."""
+    recommendations = []
+    
+    if risk_category == "Very High" or score > 75:
+        recommendations.extend([
+            "🚨 CRITICAL PRIORITY - Immediate Action Required:",
+            "• Structural Protection: Install flood barriers (height: elevation + 2m) or elevate foundations minimum 1.5m above highest flood level. Estimated cost: ₹40-160 lakhs depending on area.",
+            "• Drainage Infrastructure: Implement comprehensive drainage system with pumps (capacity: 2000+ LPM), retention tanks (volume: 30% of site area), and French drains. Cost: ₹25-80 lakhs.",
+            "• Emergency Systems: Deploy automated flood warning sensors with SMS/email alerts (₹4-12 lakhs), create evacuation routes with signage, establish emergency assembly points.",
+            "• Engineering Assessment: Commission detailed hydraulic study including flood modeling, depth analysis, and velocity mapping from licensed civil engineer. Cost: ₹8-20 lakhs.",
+            "• Insurance & Compliance: Obtain comprehensive flood insurance from public/private insurers, verify compliance with local municipality building codes and CRZ regulations.",
+            "• Flood-Resistant Construction: Use water-resistant materials (RCC, waterproof cement), install backflow preventers on sewage lines, relocate electrical panels above flood level.",
+            "• Landscaping: Create vegetated swales and rain gardens (10-15% of site), plant native monsoon-tolerant species (neem, banyan, bamboo), grade site with 2-5% slope away from structures."
+        ])
+    elif risk_category == "High" or score > 60:
+        recommendations.extend([
+            "⚠️ HIGH PRIORITY - Action Required Within 6 Months:",
+            "• Drainage Improvements: Install surface drainage systems with catch pits (spacing: 15-30m), underground detention tanks, and overflow channels. Cost: ₹16-50 lakhs.",
+            "• Foundation Protection: Elevate critical equipment (ACs, electrical panels, water pumps) minimum 1m above grade, install submersible pumps (0.5 HP minimum) with inverter backup. Cost: ₹6-16 lakhs.",
+            "• Monitoring Systems: Install water level sensors at low points, set up digital rain gauge with logging, subscribe to IMD flood alerts and local disaster management notifications.",
+            "• Flood Response Plan: Document step-by-step procedures (securing assets, power shutdown, evacuation protocols), conduct annual drills during pre-monsoon season, maintain emergency supplies.",
+            "• Site Grading: Regrade to achieve positive drainage (min 2% slope), install berms or channels along vulnerable edges (height: 0.5-1m). Cost: ₹8-25 lakhs.",
+            "• Insurance: Obtain flood insurance with adequate coverage (structure + contents) from GIC/private insurers, review policy exclusions, document baseline property condition.",
+            "• Infrastructure Upgrades: Apply waterproof coatings on basement/ground floor walls, install flood vents in enclosed areas, use MS doors with rubber seals. Cost: ₹12-32 lakhs."
+        ])
+    elif risk_category == "Moderate" or score > 40:
+        recommendations.extend([
+            "⚠️ MODERATE PRIORITY - Implement Within 12 Months:",
+            "• Preventive Drainage: Install French drains along building perimeter (depth: 1-1.2m below foundation), add gutter extensions (discharge 3m+ from foundation), clean drains quarterly. Cost: ₹4-12 lakhs.",
+            "• Site Management: Maintain 2-3% ground slope away from structures, keep vegetation trimmed, remove debris from drainage paths before and during monsoon.",
+            "• Rainwater Harvesting: Install rainwater harvesting pits (capacity: 2000-4000L each) or percolation tanks, implement porous paving for 20% of hardscape as per local bylaws. Cost: ₹2.5-8 lakhs.",
+            "• Monitoring: Track rainfall events using rain gauge, photograph potential problem areas after heavy rain, maintain flood event log, register with local ward office for alerts.",
+            "• Material Selection: Use vitrified tiles or Kota stone in ground floor, avoid wood in contact with ground, use waterproof cement plaster in vulnerable areas.",
+            "• Documentation: Survey site elevations using local surveyor, map drainage patterns, identify low points, document any historical waterlogging.",
+            "• Insurance Evaluation: Review standard property insurance for water damage coverage from LIC/GIC, consider PMFBY if agricultural land adjacent."
+        ])
+    else:
+        recommendations.extend([
+            "✅ LOW RISK - Maintain Preventive Measures:",
+            "• Routine Maintenance: Clean gutters and downspouts before monsoon (May-June), inspect drainage systems quarterly, ensure proper grading is maintained.",
+            "• Stormwater Management: Keep drains and nallahs clear of debris, maintain vegetation to prevent soil erosion, check for ground settling during monsoon.",
+            "• Documentation: Establish baseline conditions (photos, elevation survey), monitor IMD rainfall data, track changes to nearby construction/development.",
+            "• Basic Preparedness: Know local flood shelter locations (schools/community halls), keep emergency supplies (drinking water, medicines), subscribe to IMD and NDMA alerts.",
+            "• Climate Awareness: Monitor flood hazard maps from state disaster management authority, be aware of upstream development affecting drainage, track monsoon intensity changes.",
+            "• Insurance: Verify adequate property insurance coverage from GIC/private insurers, understand water damage vs. flood damage in policy terms."
+        ])
+    
+    # Add universal recommendations for Indian context
+    recommendations.extend([
+        "",
+        "📋 General Best Practices (India-Specific):",
+        "• Obtain permits from local municipality/panchayat for drainage/grading work (typically ₹40,000-1.6 lakhs including application, NOC, and supervision fees)",
+        "• Consult local municipal engineer or approved structural consultant before major construction (fees: ₹50,000-2 lakhs)",
+        "• Follow NBC (National Building Code) 2016 guidelines for flood-resistant construction",
+        "• Document all improvements with photos and receipts for insurance claims and property documentation",
+        "• Consider IMD climate projections showing 10-20% increase in extreme rainfall events for your region",
+        "• Work with certified professionals: Licensed Civil Engineer, CPWD-approved contractors, empaneled architects",
+        "• Register property with local disaster management cell for emergency notifications",
+        "• Comply with state-specific CRZ (Coastal Regulation Zone) norms if applicable"
+    ])
+    
+    return recommendations

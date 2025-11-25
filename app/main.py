@@ -5,9 +5,10 @@ India-focused backend service for location-based analysis.
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import uvicorn
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from .config import config, initialize_earth_engine
 from .models import (
@@ -16,6 +17,7 @@ from .models import (
     LandcoverHistogram, EarthEngineVisuals, RoiInfo
 )
 from .gee_utils import analyze_location
+from .pdf_generator import PDFReportGenerator
 
 
 @asynccontextmanager
@@ -135,7 +137,8 @@ async def analyze_location_endpoint(request: LocationRequest):
             roi=RoiInfo(**gee_results['roi']),
             buildings=gee_results.get('buildings'),  # Add buildings data
             administrative=gee_results.get('administrative'),  # Add administrative data
-            vegetation=gee_results.get('vegetation')  # Add vegetation data
+            vegetation=gee_results.get('vegetation'),  # Add vegetation data
+            flood_analysis=gee_results.get('flood')  # Add flood analysis data
         )
         
         # Create complete response
@@ -216,6 +219,26 @@ async def get_supported_layers():
                 "name": "vegetation",
                 "description": "Comprehensive vegetation analysis with NDVI, EVI, SAVI indices and health metrics",
                 "data_source": "Sentinel-2 + MODIS"
+            },
+            {
+                "name": "flood",
+                "description": "Comprehensive flood risk assessment with elevation, hydrology, and historical analysis",
+                "data_source": "MERIT DEM, ALOS, Cloud-to-Street, JRC GSW, CHIRPS"
+            },
+            {
+                "name": "hydrology",
+                "description": "Hydrological analysis including flow accumulation, rivers, and drainage patterns",
+                "data_source": "MERIT Hydro, HydroSHEDS, JRC Global Surface Water"
+            },
+            {
+                "name": "flood_risk",
+                "description": "Flood risk scoring with elevation, hydrology, historical events, and LLAI components",
+                "data_source": "Multi-source composite analysis"
+            },
+            {
+                "name": "llai",
+                "description": "Low-Lying Area Index measuring flood susceptibility from terrain characteristics",
+                "data_source": "MERIT DEM derived analysis"
             }
         ],
         "default_layers": ["ndvi", "elevation", "slope", "landcover"]
@@ -420,6 +443,63 @@ async def analyze_polygon_endpoint(request: dict):
         raise HTTPException(
             status_code=500,
             detail=f"Polygon analysis failed: {str(e)}"
+        )
+
+
+@app.post("/generate-report")
+async def generate_report(request: dict):
+    """
+    Generate a comprehensive PDF report for the analysis results.
+    
+    Args:
+        request: Complete analysis data including all layers
+        
+    Returns:
+        StreamingResponse: PDF file for download
+    """
+    try:
+        print(f"📄 Generating PDF report...")
+        print(f"📊 Request data keys: {list(request.keys())}")
+        print(f"📊 Latitude: {request.get('latitude')}")
+        print(f"📊 Longitude: {request.get('longitude')}")
+        print(f"📊 Vegetation data: {request.get('vegetation', 'None')}")
+        print(f"📊 Buildings data: {request.get('buildings', 'None')}")
+        print(f"📊 Administrative data: {request.get('administrative', 'None')}")
+        
+        # Add analysis date if not present
+        if 'analysis_date' not in request:
+            request['analysis_date'] = datetime.now().strftime('%B %d, %Y')
+        
+        # Initialize PDF generator
+        pdf_gen = PDFReportGenerator()
+        
+        # Generate PDF
+        pdf_buffer = pdf_gen.generate_report(request)
+        
+        # Create filename
+        location_str = f"{request.get('latitude', 'unknown')}_{request.get('longitude', 'unknown')}"
+        filename = f"GEE_Analysis_Report_{location_str}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        
+        print(f"✅ PDF report generated successfully: {filename}")
+        
+        # Return PDF as streaming response
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ Error generating PDF report: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Report generation failed: {str(e)}"
         )
 
 
